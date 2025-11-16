@@ -25,3 +25,9 @@
 ## Requirements
 
 - Web アプリケーション起動および"API Test"の正常動作
+
+## Sprint1 Result
+
+- Terraform で構成作成
+- user_data.sh.tmpl を使って自動化
+- 要件を満たす
