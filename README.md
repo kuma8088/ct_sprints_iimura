@@ -30,4 +30,6 @@
 
 - Terraform で構成作成
 - user_data.sh.tmpl を使って自動化
+  - スクリプト作成
+  - 値の渡し方(templatefile,ヒアドキュメント)
 - 要件を満たす

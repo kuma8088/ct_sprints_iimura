@@ -9,10 +9,8 @@ resource "aws_instance" "sprints_api_server_01" {
     volume_type           = "gp3"
     delete_on_termination = true
   }
-  key_name = "test-ec2-key"
-  user_data = templatefile("./api_user_data.sh", {
-    api_base_url = "http://${aws_eip.sprints_api_eip.public_ip}"
-  })
+  key_name  = "test-ec2-key"
+  user_data = file("./api_user_data.sh")
   tags = {
     Name = "api-server-01"
   }
