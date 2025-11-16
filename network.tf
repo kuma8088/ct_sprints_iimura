@@ -14,7 +14,7 @@ resource "aws_vpc" "sprints_network" {
 }
 
 # Webサブネットを作成
-resource "aws_subnet" "web_aws_subnet_01" {
+resource "aws_subnet" "sprints_web_aws_subnet_01" {
   vpc_id                  = aws_vpc.sprints_network.id
   cidr_block              = "10.0.0.0/24"
   map_public_ip_on_launch = true
@@ -22,49 +22,50 @@ resource "aws_subnet" "web_aws_subnet_01" {
 }
 
 # IGWを作成
-resource "aws_internet_gateway" "reservation_ig" {
+resource "aws_internet_gateway" "sprints_reservation_ig" {
   vpc_id = aws_vpc.sprints_network.id
 }
 
 # Public Subnetのルートテーブル
-resource "aws_route_table" "web_routetable" {
+resource "aws_route_table" "sprints_web_routetable" {
   vpc_id = aws_vpc.sprints_network.id
 }
 
 # IGW向けのルート設定
-resource "aws_route" "public_route" {
-  route_table_id         = aws_route_table.web_routetable.id
-  gateway_id             = aws_internet_gateway.reservation_ig.id
-  destination_cidr_block = "0.0.0.0/0"
-}
-
-resource "aws_route" "api_default" {
-  route_table_id         = aws_route_table.api_routetable.id
-  gateway_id             = aws_internet_gateway.reservation_ig.id
+resource "aws_route" "sprints_public_route" {
+  route_table_id         = aws_route_table.sprints_web_routetable.id
+  gateway_id             = aws_internet_gateway.sprints_reservation_ig.id
   destination_cidr_block = "0.0.0.0/0"
 }
 
 # Public Subnetのルートテーブルとサブネットの紐付
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.web_aws_subnet_01.id
-  route_table_id = aws_route_table.web_routetable.id
+resource "aws_route_table_association" "sprints_public_rt_association" {
+  subnet_id      = aws_subnet.sprints_web_aws_subnet_01.id
+  route_table_id = aws_route_table.sprints_web_routetable.id
 }
 
 # APIサブネットを作成
-resource "aws_subnet" "api_subnet_01" {
+resource "aws_subnet" "sprints_api_subnet_01" {
   vpc_id                  = aws_vpc.sprints_network.id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "ap-northeast-1a"
-  map_public_ip_on_launch = false
+  map_public_ip_on_launch = true
+}
+
+# APIサブネットのデフォルトルート
+resource "aws_route" "api_default" {
+  route_table_id         = aws_route_table.sprints_api_routetable.id
+  gateway_id             = aws_internet_gateway.sprints_reservation_ig.id
+  destination_cidr_block = "0.0.0.0/0"
 }
 
 # APIサブネットのルートテーブル
-resource "aws_route_table" "api_routetable" {
+resource "aws_route_table" "sprints_api_routetable" {
   vpc_id = aws_vpc.sprints_network.id
 }
 
 # APIサブネットのルートテーブルとサブネットの紐付け
-resource "aws_route_table_association" "private" {
-  subnet_id      = aws_subnet.api_subnet_01.id
-  route_table_id = aws_route_table.api_routetable.id
+resource "aws_route_table_association" "sprints_api_rt_association" {
+  subnet_id      = aws_subnet.sprints_api_subnet_01.id
+  route_table_id = aws_route_table.sprints_api_routetable.id
 }

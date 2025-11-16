@@ -1,0 +1,61 @@
+#!/bin/bash
+
+sudo dnf update -y
+sudo dnf -y install nginx git
+
+sudo systemctl start nginx
+sudo systemctl enable nginx
+
+cd /usr/share/nginx/html/
+sudo git clone https://github.com/CloudTechOrg/cloudtech-reservation-web.git
+chown -R ec2-user:ec2-user /usr/share/nginx/html/cloudtech-reservation-web
+
+# Nginx の設定を cloudtech-reservation-web をルートにする形で上書き
+cat <<'EOF' | sudo tee /etc/nginx/nginx.conf >/dev/null
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+
+events {
+  worker_connections 1024;
+}
+
+http {
+  include       /etc/nginx/mime.types;
+  default_type  application/octet-stream;
+
+  log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+  access_log  /var/log/nginx/access.log  main;
+
+  sendfile        on;
+  keepalive_timeout  65;
+
+  include /etc/nginx/conf.d/*.conf;
+
+  server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    root /usr/share/nginx/html/cloudtech-reservation-web;
+    index index.html;
+
+    location / {
+      try_files $uri $uri/ /index.html;
+    }
+  }
+}
+EOF
+
+sudo systemctl restart nginx
+
+cat >/usr/share/nginx/html/cloudtech-reservation-web/config.js <<EOF
+const apiConfig = {
+  baseURL: "${api_base_url}"
+}
+EOF
+
+sudo systemctl restart nginx
