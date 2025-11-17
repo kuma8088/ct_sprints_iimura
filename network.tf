@@ -29,6 +29,10 @@ resource "aws_internet_gateway" "sprints_reservation_ig" {
 # Public Subnetのルートテーブル
 resource "aws_route_table" "sprints_web_routetable" {
   vpc_id = aws_vpc.sprints_network.id
+
+  tags = {
+    Name = "sprints-web-routetable"
+  }
 }
 
 # IGW向けのルート設定
@@ -62,10 +66,73 @@ resource "aws_route" "api_default" {
 # APIサブネットのルートテーブル
 resource "aws_route_table" "sprints_api_routetable" {
   vpc_id = aws_vpc.sprints_network.id
+
+  tags = {
+    Name = "sprints-api-routetable"
+  }
 }
 
 # APIサブネットのルートテーブルとサブネットの紐付け
 resource "aws_route_table_association" "sprints_api_rt_association" {
   subnet_id      = aws_subnet.sprints_api_subnet_01.id
   route_table_id = aws_route_table.sprints_api_routetable.id
+}
+
+# DBサブネットを作成
+## DBサブネット1(ap-northeast-1a)
+resource "aws_subnet" "sprints_db_subnet_01" {
+  vpc_id                  = aws_vpc.sprints_network.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "ap-northeast-1a"
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "sprints-db-subnet-01"
+  }
+}
+
+## DBサブネット2(ap-northeast-1c)
+resource "aws_subnet" "sprints_db_subnet_02" {
+  vpc_id                  = aws_vpc.sprints_network.id
+  cidr_block              = "10.0.3.0/24"
+  availability_zone       = "ap-northeast-1c"
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "sprints-db-subnet-02"
+  }
+}
+
+## DBサブネットグループ
+resource "aws_db_subnet_group" "sprints_db_subnet_group" {
+  name = "sprints-db-subnet-group"
+  subnet_ids = [
+    aws_subnet.sprints_db_subnet_01.id,
+    aws_subnet.sprints_db_subnet_02.id
+  ]
+
+  tags = {
+    Name = "sprints-db-subnet-group"
+  }
+}
+
+# DBサブネットのルートテーブル
+resource "aws_route_table" "sprints_db_routetable" {
+  vpc_id = aws_vpc.sprints_network.id
+
+  tags = {
+    Name = "sprints-db-routetable"
+  }
+}
+
+# DBサブネットのルートテーブルとサブネットの紐付1
+resource "aws_route_table_association" "sprints_db_rt_association_01" {
+  subnet_id      = aws_subnet.sprints_db_subnet_01.id
+  route_table_id = aws_route_table.sprints_db_routetable.id
+}
+
+# DBサブネットのルートテーブルとサブネットの紐付2
+resource "aws_route_table_association" "sprints_db_rt_association_02" {
+  subnet_id      = aws_subnet.sprints_db_subnet_02.id
+  route_table_id = aws_route_table.sprints_db_routetable.id
 }

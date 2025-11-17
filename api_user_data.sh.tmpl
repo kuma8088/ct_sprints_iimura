@@ -1,0 +1,126 @@
+#!/bin/bash
+
+# ベースセットアップ -----------------------------------------------------------
+dnf -y update
+dnf -y install git golang mysql
+
+cd /home/ec2-user/
+git clone https://github.com/CloudTechOrg/cloudtech-reservation-api.git
+
+# Goでも読み込めるように最初に作成
+cat >cloudtech-reservation-api/.env <<EOF
+DB_USERNAME=${db_user}
+DB_PASSWORD=${db_password}
+DB_SERVERNAME=${db_endpoint}
+DB_PORT=3306
+DB_NAME=reservation_db
+EOF
+
+# systemdユニットを作成(.envの値をEnvironmentFileを読み込み追加)
+cat >/etc/systemd/system/goserver.service <<EOF
+[Unit]
+Description=Go Server
+
+[Service]
+WorkingDirectory=/home/ec2-user/cloudtech-reservation-api
+EnvironmentFile=/home/ec2-user/cloudtech-reservation-api/.env
+ExecStart=/usr/bin/go run main.go
+User=ec2-user
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now goserver.service
+
+# Nginx リバースプロキシ設定 ---------------------------------------------------
+sudo dnf -y install nginx
+sudo systemctl start nginx
+systemctl enable --now nginx
+
+cat >/etc/nginx/nginx.conf <<'EOF'
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+
+events {
+  worker_connections 1024;
+}
+
+http {
+  include       /etc/nginx/mime.types;
+  default_type  application/octet-stream;
+
+  log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+  access_log  /var/log/nginx/access.log  main;
+
+  sendfile        on;
+  keepalive_timeout  65;
+
+  server {
+    listen 80;
+    server_name _;
+    location / {
+      proxy_pass http://localhost:8080;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection 'upgrade';
+      proxy_set_header Host $host;
+      proxy_cache_bypass $http_upgrade;
+    }
+  }
+}
+EOF
+
+sudo systemctl restart nginx
+
+# RDS初期化　-----------------------------------------------------------------
+
+# RDS接続要件にはサーバ不要のためコメントアウト
+# sudo yum install https://dev.mysql.com/get/mysql84-community-release-el9-1.noarch.rpm
+# sudo yum install mysql-community-server -y
+# sudo systemctl start mysqld
+# sudo systemctl enable mysqld
+
+DB_HOST="${db_endpoint}"
+DB_USER="${db_user}"
+DB_PASSWORD="${db_password}"
+
+# RDSが接続可能になるまで待機
+until mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASSWORD" -e ";" ; do
+  echo "Waiting for database connection..."
+  sleep 5
+done
+
+# サンプルデータの投入(MySQLのエラー対策のため"IF NOT EXISTS/WHERE NOT EXISTS"を挿入)
+mysql -h "$DB_HOST" -P 3306 -u "$DB_USER" -p"$DB_PASSWORD" <<'SQL'
+CREATE DATABASE IF NOT EXISTS reservation_db;
+CREATE TABLE IF NOT EXISTS reservation_db.Reservations (
+    ID INT AUTO_INCREMENT PRIMARY KEY,
+    company_name VARCHAR(255) NOT NULL,
+    reservation_date DATE NOT NULL,
+    number_of_people INT NOT NULL
+);
+INSERT INTO reservation_db.Reservations (company_name, reservation_date, number_of_people)
+SELECT '株式会社テスト', '2024-04-21', 5
+WHERE NOT EXISTS (SELECT 1 FROM reservation_db.Reservations WHERE company_name = '株式会社テスト' AND reservation_date = '2024-04-21' AND number_of_people = 5)
+SQL
+
+# systemd 管理のログは journalctl -u goserver.service で確認可能。
+# テストリクエスト結果をログファイルにも残しておく。
+PID=$(sudo lsof -t -i :8080 || true)
+if [ -n "$PID" ]; then
+  sudo kill -9 "$PID"
+fi
+
+# APIプロセスの起動
+sudo systemctl restart goserver.service
+
+# 動作確認
+curl -sSf http://localhost:8080/test | tee /var/log/api_connection_check.log

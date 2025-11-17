@@ -9,8 +9,12 @@ resource "aws_instance" "sprints_api_server_01" {
     volume_type           = "gp3"
     delete_on_termination = true
   }
-  key_name  = "test-ec2-key"
-  user_data = file("./api_user_data.sh")
+  key_name = "test-ec2-key"
+  user_data = templatefile("./api_user_data.sh.tmpl", {
+    db_endpoint = aws_db_instance.sprints_db_instance.address,
+    db_user     = var.db_user,
+    db_password = var.db_password
+  })
   tags = {
     Name = "api-server-01"
   }
@@ -103,6 +107,27 @@ resource "aws_security_group" "sprints_api_server" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
+# DBサーバセキュリティグループ
+resource "aws_security_group" "sprints_db_server_sg" {
+  name   = "db-sg"
+  vpc_id = aws_vpc.sprints_network.id
+
+  tags = {
+    Name = "sprints-db-sg"
+  }
+}
+
+# DBサーバのセキュリティグループルール
+resource "aws_security_group_rule" "sprints_db_server_sg_rule" {
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.sprints_api_server.id
+  security_group_id        = aws_security_group.sprints_db_server_sg.id
+}
+
 
 # EIP-webサーバ
 resource "aws_eip" "sprints_web_eip" {

@@ -1,6 +1,6 @@
 # ct_sprints_iimura
 
-# Sprint1
+# Sprint2
 
 ## Network
 
@@ -8,6 +8,7 @@
 - InternetGateway(web/api-routetable にアタッチ)
 - web-subnet-01(10.0.0.0/24,Public,web-routetable)
 - api-subnet-01(10.0.1.0/24,Public,api-routetable)
+- db-subnet-01(10.0.2.0/24,Private)
 
 ## Compute
 
