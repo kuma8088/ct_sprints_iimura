@@ -15,7 +15,7 @@ resource "aws_iam_group" "sprints_user_management_group" {
 
 # ユーザー：テスト太郎
 resource "aws_iam_user" "taro_test" {
-  name = "test-taro"
+  name = "taro.test"
 }
 ## テスト太郎のグループ
 resource "aws_iam_user_group_membership" "taro_test" {
@@ -26,7 +26,7 @@ resource "aws_iam_user_group_membership" "taro_test" {
 
 # ユーザー：テスト次郎
 resource "aws_iam_user" "jiro_test" {
-  name = "test-jiro"
+  name = "jiro.test"
 }
 ## テスト次郎の所属グループ
 resource "aws_iam_user_group_membership" "jiro_test" {
@@ -37,7 +37,7 @@ resource "aws_iam_user_group_membership" "jiro_test" {
 
 # ユーザー：テスト三郎
 resource "aws_iam_user" "saburo_test" {
-  name = "test-saburo"
+  name = "saburo.test"
 }
 ## テスト三郎の所属グループ
 resource "aws_iam_user_group_membership" "saburo_test" {
@@ -48,7 +48,7 @@ resource "aws_iam_user_group_membership" "saburo_test" {
 
 # ユーザー：テスト四郎
 resource "aws_iam_user" "shiro_test" {
-  name = "test-shiro"
+  name = "shiro.test"
 }
 ## テスト四郎の所属グループ
 resource "aws_iam_user_group_membership" "shiro_test" {

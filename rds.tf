@@ -1,7 +1,7 @@
 # DBパラメータグループ
 resource "aws_db_parameter_group" "sprints_db_parameter_group" {
   name   = "sprints-db-parameter-group"
-  family = "mysql5.7"
+  family = "mysql8.0"
 
   parameter {
     name  = "character_set_database"
@@ -18,7 +18,7 @@ resource "aws_db_parameter_group" "sprints_db_parameter_group" {
 resource "aws_db_option_group" "sprints_db_option_group" {
   name                 = "sprints-db-option-group"
   engine_name          = "mysql"
-  major_engine_version = "5.7"
+  major_engine_version = "8.0"
 
   option {
     option_name = "MARIADB_AUDIT_PLUGIN"
@@ -29,7 +29,7 @@ resource "aws_db_option_group" "sprints_db_option_group" {
 resource "aws_db_instance" "sprints_db_instance" {
   identifier                 = "sprints-db-instance"
   engine                     = "mysql"
-  engine_version             = "5.7.44"
+  engine_version             = "8.0.43"
   instance_class             = "db.t3.small"
   allocated_storage          = 20
   max_allocated_storage      = 100
@@ -44,7 +44,7 @@ resource "aws_db_instance" "sprints_db_instance" {
   maintenance_window         = "mon:10:10-mon:10:40"
   auto_minor_version_upgrade = false
   deletion_protection        = false
-  skip_final_snapshot        = false
+  skip_final_snapshot        = true
   port                       = 3306
   apply_immediately          = false
   vpc_security_group_ids     = [aws_security_group.sprints_db_server_sg.id]

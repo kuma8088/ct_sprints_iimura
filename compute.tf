@@ -10,6 +10,11 @@ resource "aws_instance" "sprints_api_server_01" {
     delete_on_termination = true
   }
   key_name = "test-ec2-key"
+
+  # 依存関係（rdsとの接続の必要があるため）
+  depends_on = [aws_db_instance.sprints_db_instance]
+
+  # 初期設定
   user_data = templatefile("./api_user_data.sh.tmpl", {
     db_endpoint = aws_db_instance.sprints_db_instance.address,
     db_user     = var.db_user,
@@ -32,6 +37,13 @@ resource "aws_instance" "sprints_web_server_01" {
     delete_on_termination = true
   }
   key_name = "test-ec2-key"
+
+  # 依存関係（APIサーバのEIP待ち）
+  depends_on = [
+    aws_instance.sprints_api_server_01,
+    aws_eip_association.sprints_api_eip_association
+  ]
+
   user_data = templatefile("./web_user_data.sh.tmpl", {
     api_base_url = "http://${aws_eip.sprints_api_eip.public_ip}"
   })

@@ -2,28 +2,42 @@
 
 # ベースセットアップ -----------------------------------------------------------
 dnf -y update
-dnf -y install git golang mysql
+
+# インストールが失敗した時の保険失失敗した時の保険
+install_with_retry() {          # 関数定義（install_with_retryという名前）
+  local pkg=$1                  # ローカル変数pkgに第1引数を格納（例: git）
+  local retries=5               # 最大リトライ回数=5
+  local delay=10                # リトライ間隔=10秒
+
+  for i in $(seq 1 $retries); do         # 1～5までループ
+    if sudo dnf -y install "$pkg"; then  # dnfで非対話インストール、成功なら…
+      return 0                           # 0（成功）で関数終了
+    fi
+    echo "Retrying $pkg in ${delay}s (${i}/${retries})"  # 失敗時のログ
+    sleep "$delay"                                      # 指定秒数待機
+  done
+
+  echo "Failed to install $pkg after ${retries} attempts"  # 全部失敗した場合のログ
+  return 1                                                  # 1（失敗）で関数終了
+}
+
+# 関数を3回呼ぶだけ（順番にgit, golang, mysqlを入れる）
+install_with_retry git
+install_with_retry golang
+install_with_retry mysql
 
 cd /home/ec2-user/
-git clone https://github.com/CloudTechOrg/cloudtech-reservation-api.git
+if [ ! -d /home/ec2-user/cloudtech-reservation-api ]; then
+  git clone https://github.com/CloudTechOrg/cloudtech-reservation-api.git
+fi
 
-# Goでも読み込めるように最初に作成
-cat >cloudtech-reservation-api/.env <<EOF
-DB_USERNAME=${db_user}
-DB_PASSWORD=${db_password}
-DB_SERVERNAME=${db_endpoint}
-DB_PORT=3306
-DB_NAME=reservation_db
-EOF
-
-# systemdユニットを作成(.envの値をEnvironmentFileを読み込み追加)
+# systemdユニットを作成 ---------------------------------------------------------
 cat >/etc/systemd/system/goserver.service <<EOF
 [Unit]
 Description=Go Server
 
 [Service]
 WorkingDirectory=/home/ec2-user/cloudtech-reservation-api
-EnvironmentFile=/home/ec2-user/cloudtech-reservation-api/.env
 ExecStart=/usr/bin/go run main.go
 User=ec2-user
 Restart=always
@@ -33,12 +47,10 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now goserver.service
+systemctl enable goserver.service
 
 # Nginx リバースプロキシ設定 ---------------------------------------------------
 sudo dnf -y install nginx
-sudo systemctl start nginx
-systemctl enable --now nginx
 
 cat >/etc/nginx/nginx.conf <<'EOF'
 user nginx;
@@ -78,7 +90,8 @@ http {
 }
 EOF
 
-sudo systemctl restart nginx
+# 起動を一回に集約
+systemctl enable --now nginx
 
 # RDS初期化　-----------------------------------------------------------------
 
@@ -112,15 +125,17 @@ SELECT '株式会社テスト', '2024-04-21', 5
 WHERE NOT EXISTS (SELECT 1 FROM reservation_db.Reservations WHERE company_name = '株式会社テスト' AND reservation_date = '2024-04-21' AND number_of_people = 5)
 SQL
 
-# systemd 管理のログは journalctl -u goserver.service で確認可能。
-# テストリクエスト結果をログファイルにも残しておく。
+cat >/home/ec2-user/cloudtech-reservation-api/.env <<EOF
+DB_USERNAME=${db_user}
+DB_PASSWORD=${db_password}
+DB_SERVERNAME=${db_endpoint}
+DB_PORT=3306
+DB_NAME=reservation_db
+EOF
+
 PID=$(sudo lsof -t -i :8080 || true)
 if [ -n "$PID" ]; then
-  sudo kill -9 "$PID"
+sudo kill -9 "$PID"
 fi
 
-# APIプロセスの起動
-sudo systemctl restart goserver.service
-
-# 動作確認
-curl -sSf http://localhost:8080/test | tee /var/log/api_connection_check.log
+sudo systemctl start goserver.service
