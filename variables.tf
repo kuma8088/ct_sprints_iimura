@@ -7,3 +7,13 @@ variable "db_password" {
   description = "DB接続に使うパスワード"
   sensitive   = true
 }
+
+variable "region" {
+  type        = string
+  description = "リージョン"
+}
+
+variable "account_id" {
+  type        = string
+  description = "アカウントID"
+}

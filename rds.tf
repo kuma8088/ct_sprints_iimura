@@ -39,7 +39,7 @@ resource "aws_db_instance" "sprints_db_instance" {
   password                   = var.db_password
   multi_az                   = true
   publicly_accessible        = false
-  backup_window              = "09:10=09:40"
+  backup_window              = "09:10-09:40"
   backup_retention_period    = 30
   maintenance_window         = "mon:10:10-mon:10:40"
   auto_minor_version_upgrade = false
