@@ -1,30 +1,32 @@
 #!/bin/bash
 
+# 失敗したらそこで止まる
+set -euo pipefail
+
 # ベースセットアップ -----------------------------------------------------------
 dnf -y update
 
-# インストールが失敗した時の保険失失敗した時の保険
+# インストールが失敗した時の保険失敗した時の保険
 install_with_retry() {          # 関数定義（install_with_retryという名前）
   local pkg=$1                  # ローカル変数pkgに第1引数を格納（例: git）
   local retries=5               # 最大リトライ回数=5
   local delay=10                # リトライ間隔=10秒
 
-  for i in $(seq 1 $retries); do         # 1～5までループ
-    if sudo dnf -y install "$pkg"; then  # dnfで非対話インストール、成功なら…
-      return 0                           # 0（成功）で関数終了
+  for i in $(seq 1 $${retries}); do         # 1～5までループ
+    if sudo dnf -y install "$${pkg}"; then  # dnfで非対話インストール、成功なら…
+      return 0                               # 0（成功）で関数終了
     fi
-    echo "Retrying $pkg in ${delay}s (${i}/${retries})"  # 失敗時のログ
-    sleep "$delay"                                      # 指定秒数待機
+    echo "Retrying $${pkg} in $${delay}s ($${i}/$${retries})"  # 失敗時のログ
+    sleep "$${delay}"                                      # 指定秒数待機
   done
 
-  echo "Failed to install $pkg after ${retries} attempts"  # 全部失敗した場合のログ
-  return 1                                                  # 1（失敗）で関数終了
+  echo "Failed to install $${pkg} after $${retries} attempts"  # 全部失敗した場合のログ
+  return 1                                                      # 1（失敗）で関数終了
 }
 
 # 関数を3回呼ぶだけ（順番にgit, golang, mysqlを入れる）
 install_with_retry git
 install_with_retry golang
-install_with_retry mysql
 
 cd /home/ec2-user/
 if [ ! -d /home/ec2-user/cloudtech-reservation-api ]; then
@@ -65,6 +67,7 @@ events {
 http {
   include       /etc/nginx/mime.types;
   default_type  application/octet-stream;
+  include       /etc/nginx/conf.d/*.conf;  # 既存の conf.d フラグメントも読み込んでおく
 
   log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
                     '$status $body_bytes_sent "$http_referer" '
@@ -95,19 +98,21 @@ systemctl enable --now nginx
 
 # RDS初期化　-----------------------------------------------------------------
 
-# RDS接続要件にはサーバ不要のためコメントアウト
-# sudo yum install https://dev.mysql.com/get/mysql84-community-release-el9-1.noarch.rpm
-# sudo yum install mysql-community-server -y
-# sudo systemctl start mysqld
-# sudo systemctl enable mysqld
+sudo dnf -y install https://dev.mysql.com/get/mysql84-community-release-el9-1.noarch.rpm
+sudo dnf -y install mysql-community-server
+sudo systemctl start mysqld
+sudo systemctl enable mysqld
 
 DB_HOST="${db_endpoint}"
 DB_USER="${db_user}"
 DB_PASSWORD="${db_password}"
 
 # RDSが接続可能になるまで待機
+# DBに接続できるまでループし続ける（接続できたらuntilが成功してループ終了）
 until mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASSWORD" -e ";" ; do
+  # 接続に失敗している間はメッセージを出して
   echo "Waiting for database connection..."
+  # 5秒待ってから再試行
   sleep 5
 done
 
@@ -125,6 +130,7 @@ SELECT '株式会社テスト', '2024-04-21', 5
 WHERE NOT EXISTS (SELECT 1 FROM reservation_db.Reservations WHERE company_name = '株式会社テスト' AND reservation_date = '2024-04-21' AND number_of_people = 5)
 SQL
 
+# Terraform から templatefile() で db_* 変数が渡される前提
 cat >/home/ec2-user/cloudtech-reservation-api/.env <<EOF
 DB_USERNAME=${db_user}
 DB_PASSWORD=${db_password}
@@ -133,9 +139,13 @@ DB_PORT=3306
 DB_NAME=reservation_db
 EOF
 
+# ゾンビプロセスの保険
+# :8080 を使用しているプロセスの PID を取得する（-tでPIDのみ、-i :8080でポート指定、見つからなくても失敗で止まらないように '|| true'）
 PID=$(sudo lsof -t -i :8080 || true)
+# 変数 PID に一つ以上の値が入っているか（空文字でないか）をチェック
 if [ -n "$PID" ]; then
-sudo kill -9 "$PID"
+  # 見つかった PID を強制終了（SIGKILL）する；複数PIDが返ることもあるのでクォートしないで展開
+  sudo kill -9 $PID
 fi
 
 sudo systemctl start goserver.service
