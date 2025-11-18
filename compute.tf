@@ -84,6 +84,10 @@ resource "aws_security_group" "sprints_web_server_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "sprints-web-sg"
+  }
 }
 
 # セキュリティグループ_APIサーバ
@@ -117,6 +121,10 @@ resource "aws_security_group" "sprints_api_server" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "sprints-api-sg"
   }
 }
 
