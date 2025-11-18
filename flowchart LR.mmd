@@ -5,20 +5,20 @@ IGW[IGW]
 
 %%グループとサービス
 subgraph GC[AWS]
-  subgraph GV[VPC]
-    subgraph GS1[elb-subnet-1/2_pub]
+  subgraph GV[VPC<br>10.0.0.0/21]
+    subgraph GS1[elb-subnet-1/2_pub<br>10.0.5.0/24<br>10.0.6.0/24]
       NW1[ELB<br>api-alb]
     end
-    subgraph GS2[web-subnet-1_pub]
+    subgraph GS2[web-subnet-1_pub<br>10.0.0.0/24]
         SV1[EC2<br>Web]
     end
-    subgraph GS3[api-subnet-1_pri]
+    subgraph GS3[api-subnet-1_pri<br>10.0.1.0/24]
       SV2("EC2<br>api1")
     end
-    subgraph GS4[api-subnet-2_pri]
+    subgraph GS4[api-subnet-2_pri<br>10.0.4.0/24]
       SV3("EC2<br>api2")
     end
-    subgraph GS5[db-subnet-group_pri]
+    subgraph GS5[db-subnet-group_pri<br>10.0.2.0/23]
       DB1("RDS")
     end
   end
