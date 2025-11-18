@@ -27,13 +27,13 @@ subgraph GC[AWS]
           NW1{{ELB<br>api-alb}}
         end
         subgraph GS2[web-subnet-1_pub<br>10.0.0.0/24]
-          CP1[EC2<br>Web]
+          CP1[EC2:Web]
         end
         subgraph GS3[api-subnet-1_pri<br>10.0.1.0/24]
-          CP2("EC2<br>api1")
+          CP2("EC2:api1")
         end
         subgraph GS4[api-subnet-2_pri<br>10.0.4.0/24]
-          CP3("EC2<br>api2")
+          CP3("EC2:api2")
         end
         subgraph GS5[db-subnet-group_pri<br>10.0.2.0/23]
           DB1[("RDS")]
