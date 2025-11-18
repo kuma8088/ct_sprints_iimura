@@ -39,7 +39,7 @@
 
 ## Memo
 
-## Sprint1: Memo
+### Sprint1
 
 - 要件: Web アプリケーション起動および"API Test"の正常動作
 - 結果:
@@ -48,7 +48,7 @@
     - スクリプト作成
     - 値の渡し方(templatefile,ヒアドキュメント)
 
-## Sprint2: Memo
+### Sprint2
 
 - サーバ作成順（depends_on）
 - 変数利用（variables.tf,terraform.tfvars）
