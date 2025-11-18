@@ -47,6 +47,11 @@ NW1 --> SV2
 NW1 --> SV3
 SV2 --> DB1
 
+%%---スタイルの設定---
+%%VPCのスタイル
+classDef SGV fill:none,color:#0a0,stroke:#0a0
+class GV SGV
+
 ```
 
 - VPC (10.0.0.0/21)

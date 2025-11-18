@@ -5,21 +5,25 @@ IGW[IGW]
 
 %%グループとサービス
 subgraph GC[AWS]
-  subgraph GV[VPC<br>10.0.0.0/21]
-    subgraph GS1[elb-subnet-1/2_pub<br>10.0.5.0/24<br>10.0.6.0/24]
-      NW1[ELB<br>api-alb]
-    end
-    subgraph GS2[web-subnet-1_pub<br>10.0.0.0/24]
-        SV1[EC2<br>Web]
-    end
-    subgraph GS3[api-subnet-1_pri<br>10.0.1.0/24]
-      SV2("EC2<br>api1")
-    end
-    subgraph GS4[api-subnet-2_pri<br>10.0.4.0/24]
-      SV3("EC2<br>api2")
-    end
-    subgraph GS5[db-subnet-group_pri<br>10.0.2.0/23]
-      DB1("RDS")
+  subgraph GR[Region:Tokyo]
+    subgraph GV[VPC:10.0.0.0/21]
+      subgraph GA[AZ:1a]
+        subgraph GS1[elb-subnet-1/2_pub<br>10.0.5.0/24<br>10.0.6.0/24]
+          NW1{{ELB<br>api-alb}}
+        end
+        subgraph GS2[web-subnet-1_pub<br>10.0.0.0/24]
+          CP1[EC2<br>Web]
+        end
+        subgraph GS3[api-subnet-1_pri<br>10.0.1.0/24]
+          CP2("EC2<br>api1")
+        end
+        subgraph GS4[api-subnet-2_pri<br>10.0.4.0/24]
+          CP3("EC2<br>api2")
+        end
+        subgraph GS5[db-subnet-group_pri<br>10.0.2.0/23]
+          DB1[("RDS")]
+        end
+      end
     end
   end
 end
@@ -27,7 +31,62 @@ end
 %%サービス同士の関係
 INET --> IGW
 IGW --> NW1
-IGW --> SV1
-NW1 --> SV2
-NW1 --> SV3
-SV2 --> DB1
+IGW --> CP1
+NW1 --> CP2
+NW1 --> CP3
+CP2 --> DB1
+
+%%---スタイルの設定---
+%%AWS Cloudのスタイル
+classDef SGC fill:none,color:#345,stroke:#345
+class GC SGC
+
+%%Regionのスタイル
+classDef SGR fill:none,color:#59d,stroke:#59d,stroke-dasharray:3
+class GR SGR
+
+%%VPCのスタイル
+classDef SGV fill:none,color:#0a0,stroke:#0a0
+class GV SGV
+
+%%Availability Zoneのスタイル
+classDef SGA fill:none,color:#59d,stroke:#59d,stroke-width:1px,stroke-dasharray:8
+class GA SGA
+
+%%Private subnetのスタイル
+classDef SGPrS fill:#def,color:#07b,stroke:none
+class GS3 SGPrS
+class GS4 SGPrS
+class GS5 SGPrS
+
+
+%%Public subnetのスタイル
+classDef SGPuS fill:#efe,color:#092,stroke:none
+class GS1 SGPuS
+class GS2 SGPuS
+
+%%---スタイルの設定---
+
+%%外部要素のスタイル
+classDef SOU fill:#aaa,color:#fff,stroke:#fff
+class OU1,OU2,OU3 SOU
+
+%%Network関連のスタイル
+classDef SNW fill:#84d,color:#fff,stroke:none
+class NW1,NW2,NW3 SNW
+
+%%Compute関連のスタイル
+classDef SCP fill:#e83,color:#fff,stroke:none
+class CP1,CP2,CP3 SCP
+
+%%DB関連のスタイル
+classDef SDB fill:#46d,color:#fff,stroke:#fff
+class DB1,DB2,DB3 SDB
+
+%%Storage関連のスタイル
+classDef SST fill:#493,color:#fff,stroke:#fff
+class ST1,ST2,ST3 SST
+
+%%グループのスタイル
+classDef SG fill:none,color:#666,stroke:#aaa
+class GST,GDB,GCP,GNW,GOU SG
