@@ -56,7 +56,7 @@ SV2 --> DB1
 - db-subnet-01 (10.0.2.0/24, Private, db-routetable, db-subnet-group)
 - db-subnet-02 (10.0.3.0/24, Private, db-routetable, db-subnet-group)
 
-- API/WEB 各サーバには個別の EIP を割り当て、ブラウザから直接アクセス
+- WEB 各サーバには個別の EIP を割り当て、ブラウザから直接アクセス
 
 ## Compute
 
@@ -75,12 +75,16 @@ SV2 --> DB1
   - db.t3.small
   - mysql8.0
 
-## Function
+## Todo
 
-- Web -> API 接続: Success
-- API -> RDS 接続: Success
-
-## Memo
+- [ ] api-subnet-02 作成
+- [ ] api-subnet-01 Private 設定(routetable 変更)
+- [ ] api-server-02 作成
+- [ ] alb-subnet 作成
+- [ ] ALB 作成(TargetGroup/Listner)
+- [ ] web-server 設定変更(config.js)
+- [ ] auto-scaling 設定
+- [ ] 起動確認・動作確認
 
 ### Sprint1
 
