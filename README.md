@@ -4,38 +4,81 @@
 
 - [x] Sprint1: Network and Servers
 - [x] Sprint2: RDS and Authentication
-- [ ] Sprint3: 冗長化
+- [ ] Sprint3: Redundancy (ALB/Auto Scaling)
+- [ ] Sprint4: Contents Delivery
+      (Cloudfront/Route53/CertificateManager/s3-Webfront)
+- [ ] Sprint5: Container (ECR/ECS/Fargate/NAT)
+- [ ] Sprint6: DevOps (CodePipeline/CodeBuild/CodeDeploy)
 
 ## Network
 
-- VPC(10.0.0.0/21)
-- InternetGateway(web/api-routetable にアタッチ)
-- web-subnet-01(10.0.0.0/24,Public,web-routetable)
-- api-subnet-01(10.0.1.0/24,Public,api-routetable)
-- db-subnet-01(10.0.2.0/24,Private,db-routetable,db-subnet-group)
-- db-subnet-02(10.0.3.0/24,Private,db-routetable,db-subnet-group)
+```mermaid
+flowchart LR
+%%外部要素のUser
+INET((Internet))
+IGW[IGW]
+
+%%グループとサービス
+subgraph GC[AWS]
+  subgraph GV[VPC]
+    subgraph GS1[elb-subnet-1/2_pub]
+      NW1[ELB<br>api-alb]
+    end
+    subgraph GS2[web-subnet-1_pub]
+        SV1[EC2<br>Web]
+    end
+    subgraph GS3[api-subnet-1_pri]
+      SV2("EC2<br>api1")
+    end
+    subgraph GS4[api-subnet-2_pri]
+      SV3("EC2<br>api2")
+    end
+    subgraph GS5[db-subnet-group_pri]
+      DB1("RDS")
+    end
+  end
+end
+
+%%サービス同士の関係
+INET --> IGW
+IGW --> NW1
+IGW --> SV1
+NW1 --> SV2
+NW1 --> SV3
+SV2 --> DB1
+
+```
+
+- VPC (10.0.0.0/21)
+- InternetGateway (sprints_reservation_ig)
+- web-subnet-01 (10.0.0.0/24, Public, web-routetable)
+- api-subnet-01 (10.0.1.0/24, Public, api-routetable)
+- db-subnet-01 (10.0.2.0/24, Private, db-routetable, db-subnet-group)
+- db-subnet-02 (10.0.3.0/24, Private, db-routetable, db-subnet-group)
+
+- API/WEB 各サーバには個別の EIP を割り当て、ブラウザから直接アクセス
 
 ## Compute
 
-- API サーバ
+- API サーバ #Spring1/2
   - api-server-01
   - AmazonLinux
   - EIP
-  - Nginx/Go/git
-- WEB サーバ
+  - Nginx/Go/git/mysql
+- WEB サーバ #Spring1
   - web-server-01
   - AmazonLinux
   - EIP
   - Nginx/git
-- RDS サーバ(Multi AZ)
+- RDS サーバ(Multi AZ) #Sprint2
   - Aurora MySQL
   - db.t3.small
   - mysql8.0
 
 ## Function
 
-- WebSV -> APISV 接続: Success
-- APISV -> RDS 接続: Success
+- Web -> API 接続: Success
+- API -> RDS 接続: Success
 
 ## Memo
 

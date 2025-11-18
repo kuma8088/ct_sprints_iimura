@@ -1,0 +1,33 @@
+flowchart LR
+%%外部要素のUser
+INET((Internet)) 
+IGW[IGW]
+
+%%グループとサービス
+subgraph GC[AWS]
+  subgraph GV[VPC]
+    subgraph GS1[elb-subnet-1/2_pub]
+      NW1[ELB<br>api-alb]
+    end
+    subgraph GS2[web-subnet-1_pub]
+        SV1[EC2<br>Web]
+    end
+    subgraph GS3[api-subnet-1_pri]
+      SV2("EC2<br>api1")
+    end
+    subgraph GS4[api-subnet-2_pri]
+      SV3("EC2<br>api2")
+    end
+    subgraph GS5[db-subnet-group_pri]
+      DB1("RDS")
+    end
+  end
+end
+
+%%サービス同士の関係
+INET --> IGW
+IGW --> NW1
+IGW --> SV1
+NW1 --> SV2
+NW1 --> SV3
+SV2 --> DB1
