@@ -54,7 +54,7 @@ sudo systemctl restart nginx
 
 cat >/usr/share/nginx/html/cloudtech-reservation-web/config.js <<EOF
 const apiConfig = {
-  baseURL: "${api_base_url}"
+  baseURL: "${alb_base_url}"
 }
 EOF
 

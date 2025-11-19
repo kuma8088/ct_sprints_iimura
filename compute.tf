@@ -1,31 +1,117 @@
-# APIサーバ
-resource "aws_instance" "sprints_api_server_01" {
-  ami                    = "ami-09b6ff1b8ef075ba5"
-  instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.sprints_api_subnet_01.id
-  vpc_security_group_ids = [aws_security_group.sprints_api_server.id]
-  root_block_device {
-    volume_size           = 8
-    volume_type           = "gp3"
-    delete_on_termination = true
-  }
-  key_name = "test-ec2-key"
+# # APIサーバ_01
+# resource "aws_instance" "sprints_api_server_01" {
+#   ami                    = "ami-09b6ff1b8ef075ba5"
+#   instance_type          = "t3.micro"
+#   subnet_id              = aws_subnet.sprints_api_subnet_01.id
+#   vpc_security_group_ids = [aws_security_group.sprints_api_server.id]
+#   root_block_device {
+#     volume_size           = 8
+#     volume_type           = "gp3"
+#     delete_on_termination = true
+#   }
+#   key_name = "test-ec2-key"
 
-  # 依存関係（rdsとの接続の必要があるため）
+#   # 依存関係（rdsとの接続の必要があるため）
+#   depends_on = [aws_db_instance.sprints_db_instance]
+
+#   # 初期設定
+#   user_data = templatefile("./api_user_data.sh.tmpl", {
+#     db_endpoint = aws_db_instance.sprints_db_instance.address,
+#     db_user     = var.db_user,
+#     db_password = var.db_password
+#   })
+#   tags = {
+#     Name = "api-server-01"
+#   }
+# }
+
+# # APIサーバ_02
+# resource "aws_instance" "sprints_api_server_02" {
+#   ami                    = "ami-09b6ff1b8ef075ba5"
+#   instance_type          = "t3.micro"
+#   subnet_id              = aws_subnet.sprints_api_subnet_02.id
+#   vpc_security_group_ids = [aws_security_group.sprints_api_server.id]
+#   root_block_device {
+#     volume_size           = 8
+#     volume_type           = "gp3"
+#     delete_on_termination = true
+#   }
+#   key_name = "test-ec2-key"
+
+#   # 依存関係（rdsとの接続の必要があるため）
+#   depends_on = [aws_db_instance.sprints_db_instance]
+
+#   # 初期設定
+#   user_data = templatefile("./api_user_data.sh.tmpl", {
+#     db_endpoint = aws_db_instance.sprints_db_instance.address,
+#     db_user     = var.db_user,
+#     db_password = var.db_password
+#   })
+#   tags = {
+#     Name = "api-server-02"
+#   }
+# }
+
+# APIサーバ Auto Scaling---------------------------------------------------------------
+
+# APIサーバ Launch Template
+resource "aws_launch_template" "sprints_api_lt" {
+  name                   = "sprints-api-launch-template"
+  image_id               = "ami-09b6ff1b8ef075ba5"
+  instance_type          = "t3.micro"
+  vpc_security_group_ids = [aws_security_group.sprints_api_server.id]
+  key_name               = "test-ec2-key"
+  user_data = base64encode(
+    templatefile("./api_user_data.sh.tmpl", {
+      db_endpoint = aws_db_instance.sprints_db_instance.address,
+      db_user     = var.db_user,
+      db_password = var.db_password
+    })
+  )
   depends_on = [aws_db_instance.sprints_db_instance]
 
-  # 初期設定
-  user_data = templatefile("./api_user_data.sh.tmpl", {
-    db_endpoint = aws_db_instance.sprints_db_instance.address,
-    db_user     = var.db_user,
-    db_password = var.db_password
-  })
-  tags = {
-    Name = "api-server-01"
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "api-launch-template"
+    }
   }
 }
 
-# Webサーバ
+# APIサーバ Auto Scaling group
+resource "aws_autoscaling_group" "sprints_api_asg" {
+  name                      = "sprints-api-asg"
+  max_size                  = 4
+  min_size                  = 2
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = 2
+  force_delete              = true
+  launch_template {
+    id = aws_launch_template.sprints_api_lt.id
+  }
+  vpc_zone_identifier = [
+    aws_subnet.sprints_api_subnet_01.id,
+    aws_subnet.sprints_api_subnet_02.id
+  ]
+  target_group_arns = [aws_lb_target_group.sprints_api_alb_target_group.arn]
+}
+
+# AutoScalingPolicy
+resource "aws_autoscaling_policy" "sprints_api_asg_policy" {
+  name                   = "sprints-api-asg-policy"
+  policy_type            = "TargetTrackingScaling"
+  autoscaling_group_name = aws_autoscaling_group.sprints_api_asg.name
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 80.0
+  }
+}
+
+# Webサーバ ------------------------------------------------------------------------------
 resource "aws_instance" "sprints_web_server_01" {
   ami                    = "ami-09b6ff1b8ef075ba5"
   instance_type          = "t3.micro"
@@ -38,14 +124,8 @@ resource "aws_instance" "sprints_web_server_01" {
   }
   key_name = "test-ec2-key"
 
-  # 依存関係（APIサーバのEIP待ち）
-  depends_on = [
-    aws_instance.sprints_api_server_01,
-    aws_eip_association.sprints_api_eip_association
-  ]
-
   user_data = templatefile("./web_user_data.sh.tmpl", {
-    api_base_url = "http://${aws_eip.sprints_api_eip.public_ip}"
+    alb_base_url = "http://${aws_lb.api_alb.dns_name}"
   })
   tags = {
     Name = "web-server-01"
@@ -96,22 +176,8 @@ resource "aws_security_group" "sprints_api_server" {
   vpc_id = aws_vpc.sprints_network.id
 
   ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
     from_port   = 22
     to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -126,6 +192,16 @@ resource "aws_security_group" "sprints_api_server" {
   tags = {
     Name = "sprints-api-sg"
   }
+}
+
+# APIサーバのセキュリティグループルール
+resource "aws_security_group_rule" "sprints_api_sg_rule" {
+  type                     = "ingress"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.sprints_alb_sg.id
+  security_group_id        = aws_security_group.sprints_api_server.id
 }
 
 # DBサーバセキュリティグループ
@@ -157,19 +233,7 @@ resource "aws_eip" "sprints_web_eip" {
   }
 }
 
-resource "aws_eip" "sprints_api_eip" {
-  domain = "vpc"
-  tags = {
-    Name = "api-eip"
-  }
-}
-
 resource "aws_eip_association" "sprints_web_eip_association" {
   allocation_id        = aws_eip.sprints_web_eip.allocation_id
   network_interface_id = aws_instance.sprints_web_server_01.primary_network_interface_id
-}
-
-resource "aws_eip_association" "sprints_api_eip_association" {
-  allocation_id        = aws_eip.sprints_api_eip.allocation_id
-  network_interface_id = aws_instance.sprints_api_server_01.primary_network_interface_id
 }

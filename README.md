@@ -23,7 +23,7 @@ subgraph GC[AWS]
   subgraph GR[Region:Tokyo]
     subgraph GV[VPC:10.0.0.0/21]
       subgraph GA[AZ:1a]
-        subgraph GS1[elb-subnet-1/2_pub<br>10.0.5.0/24<br>10.0.6.0/24]
+        subgraph GS1[elb-subnet-1/2_pub 10.0.5.0/24 10.0.6.0/24]
           NW1{{ELB<br>api-alb}}
         end
         subgraph GS2[web-subnet-1_pub<br>10.0.0.0/24]
@@ -32,11 +32,13 @@ subgraph GC[AWS]
         subgraph GS3[api-subnet-1_pri<br>10.0.1.0/24]
           CP2("EC2:api1")
         end
-        subgraph GS4[api-subnet-2_pri<br>10.0.4.0/24]
-          CP3("EC2:api2")
-        end
         subgraph GS5[db-subnet-group_pri<br>10.0.2.0/23]
           DB1[("RDS")]
+        end
+      end
+      subgraph GA[AZ:1c]
+        subgraph GS4[api-subnet-2_pri<br>10.0.4.0/24]
+          CP3("EC2:api2")
         end
       end
     end
@@ -105,7 +107,6 @@ class ST1,ST2,ST3 SST
 %%グループのスタイル
 classDef SG fill:none,color:#666,stroke:#aaa
 class GST,GDB,GCP,GNW,GOU SG
-
 ```
 
 - VPC (10.0.0.0/21)
@@ -136,13 +137,13 @@ class GST,GDB,GCP,GNW,GOU SG
 
 ## Todo
 
-- [ ] api-subnet-02 作成
-- [ ] api-subnet-01 Private 設定(routetable 変更)
-- [ ] api-server-02 作成
-- [ ] alb-subnet 作成
-- [ ] ALB 作成(TargetGroup/Listner)
-- [ ] web-server 設定変更(config.js)
-- [ ] auto-scaling 設定
+- [x] api-subnet-02 作成
+- [x] api-subnet-01 Private 設定(routetable 変更)
+- [x] api-server-02 作成
+- [x] alb-subnet 作成
+- [x] ALB 作成(TargetGroup/Listner)
+- [x] web-server 設定変更(config.js)
+- [x] auto-scaling 設定
 - [ ] 起動確認・動作確認
 
 ### Sprint1
