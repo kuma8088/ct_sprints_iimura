@@ -57,12 +57,12 @@
 # APIサーバ Launch Template
 resource "aws_launch_template" "sprints_api_lt" {
   name                   = "sprints-api-launch-template"
-  image_id               = "ami-09b6ff1b8ef075ba5"
+  image_id               = "ami-0eefe01a65df4e4f3"
   instance_type          = "t3.micro"
   vpc_security_group_ids = [aws_security_group.sprints_api_server.id]
   key_name               = "test-ec2-key"
   user_data = base64encode(
-    templatefile("./api_user_data.sh.tmpl", {
+    templatefile("./apib_user_data.sh.tmpl", {
       db_endpoint = aws_db_instance.sprints_db_instance.address,
       db_user     = var.db_user,
       db_password = var.db_password
@@ -127,6 +127,7 @@ resource "aws_instance" "sprints_web_server_01" {
   user_data = templatefile("./web_user_data.sh.tmpl", {
     alb_base_url = "http://${aws_lb.api_alb.dns_name}"
   })
+  depends_on = [aws_lb.api_alb]
   tags = {
     Name = "web-server-01"
   }

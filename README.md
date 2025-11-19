@@ -146,6 +146,15 @@ class GST,GDB,GCP,GNW,GOU SG
 - [x] auto-scaling 設定
 - [ ] 起動確認・動作確認
 
+### Sprint3
+
+- 起動順(DB>API>ALB>WEB)
+  それぞれの依存関係およびヘルスチェックのエラー回避
+- aws_instance と aws_launch_template の ebs 設定の違い
+- alb の health_check をクリアするためのスクリプト改善
+  - api-base-ami 作成し pkg インストールし依存関係のない設置値も事前に入れておく
+  - launch_template からは最低限のセッティングだけを apib_user_data.sh.tmpl に入れる
+
 ### Sprint1
 
 - 要件: Web アプリケーション起動および"API Test"の正常動作

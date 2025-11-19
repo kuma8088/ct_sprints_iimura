@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # ベースセットアップ -----------------------------------------------------------
-dnf -y update
+sudo dnf -y update
 
 # インストールが失敗した時の保険失敗した時の保険
 install_with_retry() {          # 関数定義（install_with_retryという名前）
@@ -34,7 +34,7 @@ if [ ! -d /home/ec2-user/cloudtech-reservation-api ]; then
 fi
 
 # systemdユニットを作成 ---------------------------------------------------------
-cat >/etc/systemd/system/goserver.service <<EOF
+sudo cat >/etc/systemd/system/goserver.service <<EOF
 [Unit]
 Description=Go Server
 
