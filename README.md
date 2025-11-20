@@ -27,25 +27,25 @@ subgraph GC[AWS]
           CP1[EC2:Web]
         end
         subgraph GS1[elb1 10.0.5.0/24]
-          NW1{ELB<br>api-alb}
+          NW1{ELB-ENI<br>api-alb}
         end
 
         subgraph GS3[api1 10.0.1.0/24]
           CP2("EC2:api1")
         end
         subgraph GS5[db1 10.0.2.0/23]
-          DB1[("RDS")]
+          DB1[("RDS: Primary")]
         end
       end
      subgraph GB[AZ:1c]
         subgraph GS6[elb-2 10.0.6.0/24]
-          NW2{ELB<br>api-alb}
+          NW2{ELB-ENI<br>api-alb}
         end
         subgraph GS7[api2 10.0.4.0/24]
-          CP3("EC2:api1")
+          CP3("EC2:api2")
         end
         subgraph GS8[db2 10.0.3.0/23]
-          DB2[("RDS")]
+          DB2[("RDS: Secondary")]
         end
       end
     end
@@ -60,7 +60,8 @@ CP1 --> NW2
 NW1 --> CP2
 NW2 --> CP3
 CP2 --> DB1
-CP3 --> DB2
+CP3 --> DB1
+DB1 --> DB2
 
 %%---スタイルの設定---
 %%AWS Cloudのスタイル
