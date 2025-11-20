@@ -16,12 +16,12 @@
 flowchart TB
 %%外部要素のUser
 INET((Internet))
-IGW[IGW]
 
 %%グループとサービス
 subgraph GC[AWS]
   subgraph GR[Region:Tokyo]
     subgraph GV[VPC:10.0.0.0/21]
+      IGW[Internet Gateway]
       subgraph GA[AZ:1a]
         subgraph GS2[web 10.0.0.0/24]
           CP1[EC2:Web]
@@ -37,7 +37,7 @@ subgraph GC[AWS]
           DB1[("RDS: Primary")]
         end
       end
-     subgraph GB[AZ:1c]
+      subgraph GB[AZ:1c]
         subgraph GS6[elb-2 10.0.6.0/24]
           NW2{ELB-ENI<br>api-alb}
         end
