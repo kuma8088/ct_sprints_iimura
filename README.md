@@ -61,7 +61,7 @@ NW1 --> CP2
 NW2 --> CP3
 CP2 --> DB1
 CP3 --> DB1
-DB1 --> DB2
+DB1 -.- |Replication| DB2
 
 %%---スタイルの設定---
 %%AWS Cloudのスタイル
