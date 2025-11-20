@@ -41,10 +41,10 @@ subgraph GC[AWS]
         subgraph GS6[elb-2 10.0.6.0/24]
           NW2{ELB<br>api-alb}
         end
-        subgraph GS7[api2 10.0.1.0/24]
+        subgraph GS7[api2 10.0.4.0/24]
           CP3("EC2:api1")
         end
-        subgraph GS8[db2 10.0.2.0/23]
+        subgraph GS8[db2 10.0.3.0/23]
           DB2[("RDS")]
         end
       end
