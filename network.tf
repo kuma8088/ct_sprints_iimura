@@ -97,6 +97,10 @@ resource "aws_subnet" "sprints_api_subnet_01" {
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "ap-northeast-1a"
   map_public_ip_on_launch = false
+
+  tags = {
+    Name = "sprints-api-subnet-01"
+  }
 }
 
 # APIサブネット(1c)を作成
@@ -105,6 +109,10 @@ resource "aws_subnet" "sprints_api_subnet_02" {
   cidr_block              = "10.0.4.0/24"
   availability_zone       = "ap-northeast-1c"
   map_public_ip_on_launch = false
+
+  tags = {
+    Name = "sprints-api-subnet-02"
+  }
 }
 
 ## NAT Gateway

@@ -5,7 +5,7 @@
 - [x] Sprint1: Network and Servers
 - [x] Sprint2: RDS and Authentication
 - [x] Sprint3: Redundancy (ALB/Auto Scaling)
-- [ ] Sprint4: Contents Delivery
+- [x] Sprint4: Contents Delivery
       (Cloudfront/Route53/CertificateManager/s3-Webfront)
 - [ ] Sprint5: Container (ECR/ECS/Fargate/NAT)
 - [ ] Sprint6: DevOps (CodePipeline/CodeBuild/CodeDeploy)
@@ -19,17 +19,16 @@ INET((Internet))
 
 %%グループとサービス
 subgraph GC[AWS]
+  DNS[Route53]
+  ACM2[ACM<br>CloudFront]
   subgraph GR[Region:Tokyo]
+    ACM[ACM<br>ELB]
+    ST1[(WebFront)]
     subgraph GV[VPC:10.0.0.0/21]
-      IGW[Internet Gateway]
       subgraph GA[AZ:1a]
-        subgraph GS2[web 10.0.0.0/24]
-          CP1[EC2:Web]
-        end
         subgraph GS1[elb1 10.0.5.0/24]
           NW1{ELB-ENI<br>api-alb}
         end
-
         subgraph GS3[api1 10.0.1.0/24]
           CP2("EC2:api1")
         end
@@ -50,13 +49,15 @@ subgraph GC[AWS]
       end
     end
   end
+  CF[CloudFront]
 end
 
 %%サービス同士の関係
-INET --> IGW
-IGW --> CP1
-CP1 --> NW1
-CP1 --> NW2
+INET --> DNS
+DNS --> CF
+CF --> ST1
+DNS --> NW1
+DNS --> NW2
 NW1 --> CP2
 NW2 --> CP3
 CP2 --> DB1
@@ -78,23 +79,15 @@ class GV SGV
 
 %%Availability Zoneのスタイル
 classDef SGA fill:none,color:#59d,stroke:#59d,stroke-width:1px,stroke-dasharray:8
-class GA SGA
-class GB SGA
-
+class GA,GB SGA
 
 %%Private subnetのスタイル
 classDef SGPrS fill:#def,color:#07b,stroke:none
-class GS3 SGPrS
-class GS4 SGPrS
-class GS5 SGPrS
-class GS7 SGPrS
-class GS8 SGPrS
+class GS3,GS4,GS5,GS7,GS8 SGPrS
 
 %%Public subnetのスタイル
 classDef SGPuS fill:#efe,color:#092,stroke:none
-class GS1 SGPuS
-class GS2 SGPuS
-class GS6 SGPuS
+class GS1,GS2,GS6 SGPuS
 
 %%---スタイルの設定---
 
@@ -104,7 +97,7 @@ class OU1,OU2,OU3 SOU
 
 %%Network関連のスタイル
 classDef SNW fill:#84d,color:#fff,stroke:none
-class NW1,NW2,NW3 SNW
+class NW1,NW2,NW3,CF,DNS SNW
 
 %%Compute関連のスタイル
 classDef SCP fill:#e83,color:#fff,stroke:none
@@ -123,29 +116,9 @@ classDef SG fill:none,color:#666,stroke:#aaa
 class GST,GDB,GCP,GNW,GOU SG
 ```
 
-- VPC (10.0.0.0/21)
-- InternetGateway (sprints_reservation_ig)
-- NAT Gateway
-
-- Public Subnets
-
-  - web-subnet-01 (10.0.0.0/24, Public, web-routetable)
-  - alb-subnet-01,02 (10.0.5.0/24, 10.0.6.0/24, Public)
-
-- Private Subnets
-
-  - api-subnet-01/02 (10.0.1.0/24, 10.0.4.0/24 Private, api-routetable)
-  - db-subnet-01/02 (10.0.2.0/23, Private, db-routetable, db-subnet-group)
-
-- WEB 各サーバには個別の EIP を割り当て、ブラウザから直接アクセス
-
 ## Compute
 
-- WEB サーバ
-  - web-server-01
-  - AmazonLinux
-  - EIP
-  - Nginx
+- WEB フロント(s3)
 - API サーバ
   - api-server-01
   - AmazonLinux
@@ -155,16 +128,20 @@ class GST,GDB,GCP,GNW,GOU SG
   - db.t3.small
   - mysql8.0
 
-## Sprint4 Tasks
+## Sprint5 Tasks
 
-- [ ] S3バケット作成
-- [ ] Web-serverのS3への移行
-- [ ] CloudFront(OAC)
-- [ ] Route53
-- [ ] CertificateManager
-- [ ] AutoScaling (api.ドメイン)
-- [ ] S3Webserver>api向先変更
-- [ ] 動作確認
+### Sprint4 Problem/Resolution
+
+- 追加レコードの検証が完了しない
+  ホストゾーンとレジストラの NS レコード設定が必要（ホストゾーンの作成とレコード追加・検証の同時作業は不可）
+- CloudFront CNAME エラー (InvalidViewerCertificate)
+  ACM 証明書が Apex ドメインのみで `www` を含んでいなかったため、CloudFront の Aliases から `www` を除外して対応
+- Route53 Alias エラー (InvalidChangeBatch)
+  ALB への Alias レコード作成時、`zone_id` に Route53 のゾーン ID ではなく、ALB のゾーン ID (`aws_lb.api_alb.zone_id`) を指定する必要があった
+- CORS エラー (No 'Access-Control-Allow-Origin')
+  API サーバー(Nginx)が CORS ヘッダーを返していなかったため、`user_data` で Nginx 設定を追加し、`Access-Control-Allow-Origin` を付与
+- 設定変更が反映されない (Timeout)
+  `user_data` で Nginx 設定ファイルを書き換えた後、`start` ではなく `restart` を実行しないと新設定が読み込まれない問題を修正
 
 ### Sprint3 Completed
 

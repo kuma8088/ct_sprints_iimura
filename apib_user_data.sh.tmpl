@@ -56,5 +56,40 @@ if [ -n "$PID" ]; then
   sudo kill -9 $PID
 fi
 
-sudo systemctl start nginx
+# NginxのCORS設定を追加
+cat > /etc/nginx/conf.d/reservation_api.conf <<'EOF'
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://localhost:8080;
+
+        # CORS設定
+        set $allow_origin "https://${domain_name}";
+
+        add_header 'Access-Control-Allow-Origin' $allow_origin always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+        add_header 'Access-Control-Allow-Headers' 'Origin, Authorization, Accept, Content-Type' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' $allow_origin always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+            add_header 'Access-Control-Allow-Headers' 'Origin, Authorization, Accept, Content-Type' always;
+            add_header 'Access-Control-Allow-Credentials' 'true' always;
+            add_header 'Content-Type' 'text/plain charset=UTF-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+    }
+}
+EOF
+
+# デフォルト設定が邪魔しないようにリネーム（もしあれば）
+if [ -f /etc/nginx/conf.d/default.conf ]; then
+    mv /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.bak
+fi
+
+sudo systemctl restart nginx
 sudo systemctl restart goserver.service

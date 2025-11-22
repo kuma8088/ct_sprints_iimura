@@ -9,7 +9,8 @@ locals {
 # 1. S3 バケット作成
 # ---------------------------------
 resource "aws_s3_bucket" "sprints_static_site" {
-  bucket = local.bucket_name
+  bucket        = local.bucket_name
+  force_destroy = true
 }
 
 # ---------------------------------
@@ -18,10 +19,10 @@ resource "aws_s3_bucket" "sprints_static_site" {
 resource "aws_s3_bucket_public_access_block" "sprints_static_site" {
   bucket = aws_s3_bucket.sprints_static_site.bucket
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 # ---------------------------------
@@ -35,19 +36,19 @@ resource "aws_cloudfront_origin_access_control" "sprints_static_site" {
   signing_protocol                  = "sigv4"
 }
 
-# ---------------------------------
-# 3. 静的ウェブホスティングの設定
-# ---------------------------------
-resource "aws_s3_bucket_website_configuration" "sprints_static_site" {
-  bucket = aws_s3_bucket.sprints_static_site.bucket
-  index_document {
-    suffix = "index.html"
-  }
+# # ---------------------------------
+# # 3. 静的ウェブホスティングの設定
+# # ---------------------------------
+# resource "aws_s3_bucket_website_configuration" "sprints_static_site" {
+#   bucket = aws_s3_bucket.sprints_static_site.bucket
+#   index_document {
+#     suffix = "index.html"
+#   }
 
-  error_document {
-    key = "error.html"
-  }
-}
+#   error_document {
+#     key = "error.html"
+#   }
+# }
 
 # ---------------------------------
 # 4. バケットポリシーの設定
@@ -76,7 +77,13 @@ data "aws_iam_policy_document" "sprints_s3_access_policy" {
     resources = [
       "${aws_s3_bucket.sprints_static_site.arn}/*"
     ]
-
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values = [
+        "${aws_cloudfront_distribution.sprints_s3_distribution.arn}"
+      ]
+    }
   }
 }
 
@@ -87,7 +94,8 @@ resource "null_resource" "sprints_git_clone_and_sync" {
   triggers = {
     # リポジトリURLが変わったら再実行
     repo_url = var.github_repo_url
-    # 毎回実行したい場合は timestamp() などを使うが、今回はURL変更時のみとする
+    # 毎回実行してconfig.jsを更新する
+    always_run = timestamp()
   }
 
   provisioner "local-exec" {
@@ -103,9 +111,9 @@ resource "null_resource" "sprints_git_clone_and_sync" {
       
       # config.js を作成/上書きしてAPIの向き先を変更
       # 注意: var.domain_name は terraform apply 時に展開されます
-      cat > $TMP_DIR/config.js <<CONFIG
-window.env = {
-  API_URL: "https://api.${var.domain_name}"
+cat > $TMP_DIR/config.js <<CONFIG
+var apiConfig = {
+  baseURL: "https://api.${var.domain_name}"
 };
 CONFIG
       

@@ -11,7 +11,13 @@ resource "aws_cloudfront_distribution" "sprints_s3_distribution" {
 
     # OACを設定
     origin_access_control_id = aws_cloudfront_origin_access_control.sprints_static_site.id
+
+    s3_origin_config {
+      origin_access_identity = ""
+    }
   }
+
+  aliases = [var.domain_name]
 
   # キャッシュ動作
   default_cache_behavior {
@@ -23,7 +29,7 @@ resource "aws_cloudfront_distribution" "sprints_s3_distribution" {
     viewer_protocol_policy = "redirect-to-https"
 
     # デフォルトのTTL設定
-    cache_policy_id = "658327ea-f89d-4804-ac5d-f3ca777a0300" # Managed-CachingOptimized
+    cache_policy_id = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
   # 地理的制限（なし）
@@ -49,7 +55,12 @@ resource "aws_cloudfront_distribution" "sprints_s3_distribution" {
 data "aws_acm_certificate" "sprints_cf_cert" {
   provider = aws.us_east_1
 
-  domain      = "onamae-cloudtech-demo-2025.com"
+  domain      = var.domain_name
   statuses    = ["ISSUED"]
   most_recent = true
+}
+
+# キャッシュポリシーの取得
+data "aws_cloudfront_cache_policy" "caching_optimized" {
+  name = "Managed-CachingOptimized"
 }

@@ -26,7 +26,7 @@ resource "aws_route53_record" "sprints_api_cert_validation" {
 
   name            = each.value.name
   type            = each.value.type
-  zone_id         = aws_route53_zone.sprints_zone.zone_id
+  zone_id         = data.aws_route53_zone.sprints_zone.zone_id
   ttl             = 60
   records         = [each.value.value]
   allow_overwrite = true
@@ -41,12 +41,12 @@ resource "aws_acm_certificate_validation" "sprints_api_cert_validation_wait" {
 # 3. Route53とACM証明書を紐付ける
 # ------------------------------------------------------------------
 resource "aws_route53_record" "sprints_api_alias" {
-  zone_id = aws_route53_zone.sprints_zone.zone_id
+  zone_id = data.aws_route53_zone.sprints_zone.zone_id
   name    = "api.${var.domain_name}"
   type    = "A"
   alias {
     name                   = aws_lb.api_alb.dns_name
-    zone_id                = aws_route53_zone.sprints_zone.zone_id
+    zone_id                = aws_lb.api_alb.zone_id
     evaluate_target_health = true
   }
 }
@@ -118,7 +118,8 @@ resource "aws_launch_template" "sprints_api_lt" {
     templatefile("./apib_user_data.sh.tmpl", {
       db_endpoint = aws_db_instance.sprints_db_instance.address,
       db_user     = var.db_user,
-      db_password = var.db_password
+      db_password = var.db_password,
+      domain_name = var.domain_name
     })
   )
   depends_on = [aws_db_instance.sprints_db_instance]

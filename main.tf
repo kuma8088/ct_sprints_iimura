@@ -14,5 +14,5 @@ provider "aws" {
 
 # ルートドメインとサブドメインを変数として定義
 locals {
-  domain_name = aws_route53_zone.sprints_zone.name
+  domain_name = data.aws_route53_zone.sprints_zone.name
 }
