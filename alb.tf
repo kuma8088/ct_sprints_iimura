@@ -65,8 +65,8 @@ resource "aws_lb_listener" "api_alb_listener_https" {
 
 # ALB TargetGroup
 resource "aws_lb_target_group" "sprints_api_alb_target_group" {
-  name                 = "api-alb-target-group"
-  target_type          = "instance"
+  name                 = "sprints-ecs-alb-target-group"
+  target_type          = "ip"
   vpc_id               = aws_vpc.sprints_network.id
   port                 = 80
   protocol             = "HTTP"
@@ -82,7 +82,9 @@ resource "aws_lb_target_group" "sprints_api_alb_target_group" {
     port                = "traffic-port"
     protocol            = "HTTP"
   }
-
+  tags = {
+    Name = "sprints-ecs-alb-target-group"
+  }
 }
 
 output "alb_dns_name" {

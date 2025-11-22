@@ -54,10 +54,10 @@ end
 
 %%サービス同士の関係
 INET --> DNS
-DNS --> CF
+DNS --> |HTTPS| CF
 CF --> ST1
-ST1 --> NW1
-ST1 --> NW2
+ST1 --> |HTTPS| NW1
+ST1 --> |HTTPS| NW2
 NW1 --> CP2
 NW2 --> CP3
 CP2 --> DB1
@@ -130,8 +130,8 @@ class GST,GDB,GCP,GNW,GOU SG
 
 ## Sprint5 Tasks
 
-- [ ] ALB Listner の変更（
-- [ ] 既存 AutoScaling の変更（停止）
+- [x] ALB Listner の変更 (target_type = "ip")
+- [x] 既存 AutoScaling の変更（停止）
 - [x] NAT ゲートウェイの作成（既に作成済み）
 - [ ] ECS タスク定義
 - [ ] ECS サービス定義
