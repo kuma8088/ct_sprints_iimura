@@ -119,7 +119,7 @@ class GST,GDB,GCP,GNW,GOU SG
 ## Compute
 
 - WEB フロント(s3)
-- API サーバ
+- API サーバ (AutoScaling)
   - api-server-01
   - AmazonLinux
   - Nginx/Go/mysql
