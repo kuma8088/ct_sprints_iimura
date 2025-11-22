@@ -19,7 +19,7 @@ INET((Internet))
 
 %%グループとサービス
 subgraph GC[AWS]
-  DNS[Route53<br>root/api.ドメインの名前解決]
+  DNS[Route53<br>root/api resolver]
   ACM2[ACM<br>CloudFront]
   subgraph GR[Region:Tokyo]
     ACM[ACM<br>ELB]
