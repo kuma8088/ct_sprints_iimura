@@ -17,3 +17,15 @@ variable "account_id" {
   type        = string
   description = "アカウントID"
 }
+
+variable "github_repo_url" {
+  type        = string
+  description = "S3にデプロイするGitHubリポジトリのURL"
+}
+
+variable "domain_name" {
+  type        = string
+  description = "ドメイン名"
+  default     = "onamae-cloudtech-demo-2025.com"
+}
+

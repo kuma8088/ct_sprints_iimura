@@ -1,3 +1,56 @@
+# ------------------------------------------------------------------
+# 1. ACM証明書の取得
+# ------------------------------------------------------------------
+resource "aws_acm_certificate" "sprints_api_cert" {
+  domain_name       = "api.${var.domain_name}"
+  validation_method = "DNS"
+  subject_alternative_names = [
+    "api.${var.domain_name}"
+  ]
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# ------------------------------------------------------------------
+# 2. Route53 検証レコードの作成と検証
+# ------------------------------------------------------------------
+resource "aws_route53_record" "sprints_api_cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.sprints_api_cert.domain_validation_options : dvo.domain_name => {
+      name  = dvo.resource_record_name
+      type  = dvo.resource_record_type
+      value = dvo.resource_record_value
+    }
+  }
+
+  name            = each.value.name
+  type            = each.value.type
+  zone_id         = aws_route53_zone.sprints_zone.zone_id
+  ttl             = 60
+  records         = [each.value.value]
+  allow_overwrite = true
+}
+
+resource "aws_acm_certificate_validation" "sprints_api_cert_validation_wait" {
+  certificate_arn         = aws_acm_certificate.sprints_api_cert.arn
+  validation_record_fqdns = [for record in aws_route53_record.sprints_api_cert_validation : record.fqdn]
+}
+
+# ------------------------------------------------------------------
+# 3. Route53とACM証明書を紐付ける
+# ------------------------------------------------------------------
+resource "aws_route53_record" "sprints_api_alias" {
+  zone_id = aws_route53_zone.sprints_zone.zone_id
+  name    = "api.${var.domain_name}"
+  type    = "A"
+  alias {
+    name                   = aws_lb.api_alb.dns_name
+    zone_id                = aws_route53_zone.sprints_zone.zone_id
+    evaluate_target_health = true
+  }
+}
+
 # # APIサーバ_01
 # resource "aws_instance" "sprints_api_server_01" {
 #   ami                    = "ami-09b6ff1b8ef075ba5"
@@ -111,27 +164,27 @@ resource "aws_autoscaling_policy" "sprints_api_asg_policy" {
   }
 }
 
-# Webサーバ ------------------------------------------------------------------------------
-resource "aws_instance" "sprints_web_server_01" {
-  ami                    = "ami-09b6ff1b8ef075ba5"
-  instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.sprints_web_aws_subnet_01.id
-  vpc_security_group_ids = [aws_security_group.sprints_web_server_sg.id]
-  root_block_device {
-    volume_size           = 8
-    volume_type           = "gp3"
-    delete_on_termination = true
-  }
-  key_name = "test-ec2-key"
+# # Webサーバ ------------------------------------------------------------------------------
+# resource "aws_instance" "sprints_web_server_01" {
+#   ami                    = "ami-09b6ff1b8ef075ba5"
+#   instance_type          = "t3.micro"
+#   subnet_id              = aws_subnet.sprints_web_aws_subnet_01.id
+#   vpc_security_group_ids = [aws_security_group.sprints_web_server_sg.id]
+#   root_block_device {
+#     volume_size           = 8
+#     volume_type           = "gp3"
+#     delete_on_termination = true
+#   }
+#   key_name = "test-ec2-key"
 
-  user_data = templatefile("./web_user_data.sh.tmpl", {
-    alb_base_url = "http://${aws_lb.api_alb.dns_name}"
-  })
-  depends_on = [aws_lb.api_alb]
-  tags = {
-    Name = "web-server-01"
-  }
-}
+#   user_data = templatefile("./web_user_data.sh.tmpl", {
+#     alb_base_url = "http://${aws_lb.api_alb.dns_name}"
+#   })
+#   depends_on = [aws_lb.api_alb]
+#   tags = {
+#     Name = "web-server-01"
+#   }
+# }
 
 # セキュリティグループ_Webサーバ
 resource "aws_security_group" "sprints_web_server_sg" {
@@ -226,15 +279,15 @@ resource "aws_security_group_rule" "sprints_db_server_sg_rule" {
 }
 
 
-# EIP-webサーバ
-resource "aws_eip" "sprints_web_eip" {
-  domain = "vpc"
-  tags = {
-    Name = "web-eip"
-  }
-}
+# # EIP-webサーバ
+# resource "aws_eip" "sprints_web_eip" {
+#   domain = "vpc"
+#   tags = {
+#     Name = "web-eip"
+#   }
+# }
 
-resource "aws_eip_association" "sprints_web_eip_association" {
-  allocation_id        = aws_eip.sprints_web_eip.allocation_id
-  network_interface_id = aws_instance.sprints_web_server_01.primary_network_interface_id
-}
+# resource "aws_eip_association" "sprints_web_eip_association" {
+#   allocation_id        = aws_eip.sprints_web_eip.allocation_id
+#   network_interface_id = aws_instance.sprints_web_server_01.primary_network_interface_id
+# }

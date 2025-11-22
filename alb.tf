@@ -22,7 +22,7 @@ resource "aws_security_group" "sprints_alb_sg" {
   vpc_id = aws_vpc.sprints_network.id
 
   ingress {
-    from_port   = 80
+    from_port   = 443
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
@@ -37,10 +37,25 @@ resource "aws_security_group" "sprints_alb_sg" {
 }
 
 # ALB Listener
-resource "aws_lb_listener" "api_alb_listener" {
+# ## HTTP
+# resource "aws_lb_listener" "api_alb_listener" {
+#   load_balancer_arn = aws_lb.api_alb.arn
+#   port              = 80
+#   protocol          = "HTTP"
+
+#   default_action {
+#     type             = "forward"
+#     target_group_arn = aws_lb_target_group.sprints_api_alb_target_group.arn
+#   }
+# }
+
+## HTTPS
+resource "aws_lb_listener" "api_alb_listener_https" {
   load_balancer_arn = aws_lb.api_alb.arn
-  port              = 80
-  protocol          = "HTTP"
+  port              = 443
+  protocol          = "HTTPS"
+
+  certificate_arn = aws_acm_certificate.sprints_api_cert.arn
 
   default_action {
     type             = "forward"

@@ -155,7 +155,16 @@ class GST,GDB,GCP,GNW,GOU SG
   - db.t3.small
   - mysql8.0
 
-## Todo
+## Sprint4 Tasks
+
+- [ ] S3バケット作成
+- [ ] Web-serverのS3への移行
+- [ ] CloudFront(OAC)
+- [ ] Route53
+- [ ] CertificateManager
+- [ ] AutoScaling (api.ドメイン)
+- [ ] S3Webserver>api向先変更
+- [ ] 動作確認
 
 ### Sprint3 Completed
 

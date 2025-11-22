@@ -1,7 +1,3 @@
-provider "aws" {
-  region = "ap-northeast-1"
-}
-
 # VPCを作成
 resource "aws_vpc" "sprints_network" {
   cidr_block           = "10.0.0.0/21"

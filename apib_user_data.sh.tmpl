@@ -9,7 +9,7 @@ systemctl enable --now goserver.service
 systemctl enable --now nginx
 sudo systemctl enable --now mysqld
 
-# RDS初期化　-----------------------------------------------------------------
+# RDS初期化 -----------------------------------------------------------------
 
 DB_HOST="${db_endpoint}"
 DB_USER="${db_user}"
@@ -52,7 +52,7 @@ EOF
 PID=$(sudo lsof -t -i :8080 || true)
 # 変数 PID に一つ以上の値が入っているか（空文字でないか）をチェック
 if [ -n "$PID" ]; then
-  # 見つかった PID を強制終了（SIGKILL）する；複数PIDが返ることもあるのでクォートしないで展開
+  # 見つかった PID を強制終了（SIGKILL）する;複数PIDが返ることもあるのでクォートしないで展開
   sudo kill -9 $PID
 fi
 
