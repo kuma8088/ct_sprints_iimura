@@ -19,7 +19,7 @@ INET((Internet))
 
 %%グループとサービス
 subgraph GC[AWS]
-  DNS[Route53]
+  DNS[Route53<br>root/api.ドメインの名前解決]
   ACM2[ACM<br>CloudFront]
   subgraph GR[Region:Tokyo]
     ACM[ACM<br>ELB]
@@ -56,8 +56,8 @@ end
 INET --> DNS
 DNS --> CF
 CF --> ST1
-DNS --> NW1
-DNS --> NW2
+ST1 --> NW1
+ST1 --> NW2
 NW1 --> CP2
 NW2 --> CP3
 CP2 --> DB1
@@ -129,6 +129,13 @@ class GST,GDB,GCP,GNW,GOU SG
   - mysql8.0
 
 ## Sprint5 Tasks
+
+- [ ] ALB Listner の変更（
+- [ ] 既存 AutoScaling の変更（停止）
+- [x] NAT ゲートウェイの作成（既に作成済み）
+- [ ] ECS タスク定義
+- [ ] ECS サービス定義
+- [ ] 動作確認
 
 ### Sprint4 Problem/Resolution
 
