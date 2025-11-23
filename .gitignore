@@ -29,6 +29,5 @@ override.tf.json
 *_override.tf.json
 
 doc/
-*.mmd
-*.pdf
 archive/
+cloudtech-reservation-api/

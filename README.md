@@ -24,13 +24,15 @@ subgraph GC[AWS]
   subgraph GR[Region:Tokyo]
     ACM[ACM<br>ELB]
     ST1[(WebFront)]
+    ECR[ECR]
     subgraph GV[VPC:10.0.0.0/21]
+      NW3[NATGW]
       subgraph GA[AZ:1a]
         subgraph GS1[elb1 10.0.5.0/24]
           NW1{ELB-ENI<br>api-alb}
         end
         subgraph GS3[api1 10.0.1.0/24]
-          CP2("EC2:api1")
+          CP2("Fargate<br>api1")
         end
         subgraph GS5[db1 10.0.2.0/23]
           DB1[("RDS: Primary")]
@@ -41,7 +43,7 @@ subgraph GC[AWS]
           NW2{ELB-ENI<br>api-alb}
         end
         subgraph GS7[api2 10.0.4.0/24]
-          CP3("EC2:api2")
+          CP3("Fargate<br>api2")
         end
         subgraph GS8[db2 10.0.3.0/23]
           DB2[("RDS: Secondary")]
@@ -63,6 +65,10 @@ NW2 --> CP3
 CP2 --> DB1
 CP3 --> DB1
 DB1 -.- |Replication| DB2
+ECR -.- NW3
+NW3 -.-|Pull| CP2
+NW3 -.-|Pull| CP3
+
 
 %%---スタイルの設定---
 %%AWS Cloudのスタイル
@@ -101,7 +107,7 @@ class NW1,NW2,NW3,CF,DNS SNW
 
 %%Compute関連のスタイル
 classDef SCP fill:#e83,color:#fff,stroke:none
-class CP1,CP2,CP3 SCP
+class CP1,CP2,CP3,ECR SCP
 
 %%DB関連のスタイル
 classDef SDB fill:#46d,color:#fff,stroke:#fff
@@ -133,9 +139,28 @@ class GST,GDB,GCP,GNW,GOU SG
 - [x] ALB Listner の変更 (target_type = "ip")
 - [x] 既存 AutoScaling の変更（停止）
 - [x] NAT ゲートウェイの作成（既に作成済み）
-- [ ] ECS タスク定義
-- [ ] ECS サービス定義
+- [x] ECS タスク定義
+- [x] ECS サービス定義
 - [ ] 動作確認
+
+### Sprint5 Problem/Resolution
+
+- ECS サービス作成エラー (InvalidParameterException)
+  ALB と ECS サービスの間に循環依存 (`depends_on`) が発生し、ターゲットグループが ALB に紐付く前に ECS サービスが作成されようとしたためエラー。`alb.tf` の `depends_on` を削除し、逆に `compute.tf` の ECS サービス側で `depends_on = [aws_lb_listener...]` を設定して解決
+- CORS エラー (No 'Access-Control-Allow-Origin')
+  パブリックイメージ (`public.ecr.aws`) には CORS 対応が含まれていなかったため発生。ローカルの Go コード（CORS 対応済み）をビルドし、自身の ECR リポジトリ (`sprints-api`) に Push して解決
+- ポート不整合
+  環境変数 `API_PORT=80` に対し、タスク定義や ALB が `8080` を向いていたため通信不可。全て `80` に統一して解決
+- タスク定義が更新されない (非アクティブのまま)
+  `lifecycle { ignore_changes = [task_definition] }` が設定されていたため、新しいイメージを指定しても ECS サービスが古いタスク定義を使い続けていた。設定を削除して解決
+- DB 初期化
+  Fargate 化に伴い `user_data` が実行されなくなるため、DB 初期化（テーブル作成）が行われない問題が発生。
+  **解決策:** Go アプリケーション (`main.go`) に起動時に DB とテーブルを自動作成する処理 (`initDB`) を追加し、インフラに依存せずアプリ側で完結するように修正。
+- ヘルスチェック失敗 (Unhealthy)
+  アプリは起動しているが ALB からのヘルスチェックがタイムアウトする現象が発生。
+  一時的に VPC 全開放 (`0.0.0.0/0`) や VPC 内限定 (`cidr_blocks`) で切り分けを行ったが、最終的にはセキュリティ要件を満たすため **ALB のセキュリティグループ参照 (`source_security_group_id`)** に戻して動作確認はしていない。
+- 不要なポート開放の削除
+  Fargate 化に伴い SSH 接続（ポート 22）は不要となるため、セキュリティグループのインバウンドルールから削除。
 
 ### Sprint4 Problem/Resolution
 

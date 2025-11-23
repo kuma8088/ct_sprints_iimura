@@ -96,7 +96,7 @@ resource "aws_ecs_task_definition" "sprints_api_td" {
   container_definitions = jsonencode([
     {
       name  = "sprints-api-container"
-      image = "public.ecr.aws/z7i1h7x3/cloudtech-reservation-api:latest"
+      image = "${aws_ecr_repository.sprints_api.repository_url}:latest"
       portMappings = [
         {
           containerPort = 80
@@ -152,9 +152,9 @@ resource "aws_ecs_service" "sprints_api_service" {
     container_port   = 80
   }
 
-  lifecycle {
-    ignore_changes = [task_definition]
-  }
+
+
+  depends_on = [aws_lb_listener.api_alb_listener_https]
 }
 
 # ECS Auto Scaling Target
@@ -229,12 +229,12 @@ resource "aws_security_group" "sprints_api_server" {
   name   = "api-server-sg"
   vpc_id = aws_vpc.sprints_network.id
 
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # ingress {
+  #   from_port   = 22
+  #   to_port     = 22
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  # }
 
   egress {
     from_port   = 0

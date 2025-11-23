@@ -13,7 +13,6 @@ resource "aws_lb" "api_alb" {
   security_groups = [
     aws_security_group.sprints_alb_sg.id
   ]
-  depends_on = [aws_autoscaling_group.sprints_api_asg]
 }
 
 # SecurityGroup
