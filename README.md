@@ -8,10 +8,10 @@
 - [x] Sprint4: Contents Delivery
       (Cloudfront/Route53/CertificateManager/s3-Webfront)
 - [x] Sprint5: Container (ECR/ECS/Fargate/NAT)
-- [ ] Sprint6: DevOps (CodePipeline/CodeBuild/CodeDeploy)
+- [x] Sprint6: DevOps (CodePipeline/CodeBuild/CodeDeploy)
   - [x] Rolling Deployment
-  - [ ] Blue/Green Deployment
-  - [ ] Lambda 検知
+  - [x] Blue/Green Deployment
+  - [x] Lambda 検知
 
 ## Network
 
@@ -31,6 +31,7 @@ subgraph GC[AWS]
     ECR[ECR]
     CDP[CodeBuild]
     CDB[CodeDeploy]
+    LMD[DeployHook]
     subgraph GV[VPC:10.0.0.0/21]
       NW3[NATGW]
       subgraph GA[AZ:1a]
@@ -79,6 +80,7 @@ DB1 -.- |Replication| DB2
 ECR -.- NW3
 NW3 -.-|Pull| CP2
 NW3 -.-|Pull| CP3
+LMD -.- |LifeCycleHook|CDB
 
 
 %%---スタイルの設定---
@@ -118,7 +120,7 @@ class NW1,NW2,NW3,CF,DNS SNW
 
 %%Compute関連のスタイル
 classDef SCP fill:#e83,color:#fff,stroke:none
-class CP1,CP2,CP3,ECR,CDB,CDP SCP
+class CP1,CP2,CP3,ECR,CDB,CDP,LMD SCP
 
 %%DB関連のスタイル
 classDef SDB fill:#46d,color:#fff,stroke:#fff
@@ -153,7 +155,9 @@ class GST,GDB,GCP,GNW,GOU SG
   - CodeStar Connection (GitHub 連携)
   - CodeBuild (Docker ビルド & ECR Push)
   - CodePipeline (Source -> Build -> ECS Deploy)
-- [ ] 動作確認 (GitHub Push -> 自動デプロイ)
+- [x] Rolling Deployment
+- [x] Blue/Green Deployment
+- [x] 動作確認 (GitHub Push -> 自動デプロイ)
 
 ### Sprint6 Points
 
@@ -167,6 +171,11 @@ class GST,GDB,GCP,GNW,GOU SG
 - **ECS Standard Deployment**
   今回は Blue/Green デプロイ（CodeDeploy）ではなく、ECS 標準のローリングアップデートを採用しました。
   `imagedefinitions.json` をアーティファクトとして渡すことで、CodePipeline が自動的にタスク定義のイメージ URI を書き換えてデプロイします。
+
+- **Blue/Green Deployment**
+  - Blue/Green デプロイメントの実装・テスト実施。
+  - Terraform で Blue/Green を実装する場合、コンソール設定と同じく buildspec.yml の生成だけですすめれれるが、進行上は appspec.yml や taskdef.json の生成も必要。
+  - DockerHub からの Ratelimit 対策として、ECR への Push は GitHub Actions で行い、CodeBuild では Pull のみ行うように設定。
 
 ### Sprint5 Completed: Problem/Resolution
 

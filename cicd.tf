@@ -71,6 +71,15 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "s3:GetObject",
           "s3:PutObject"
         ]
+      },
+      {
+        Effect = "Allow"
+        Resource = [
+          "*"
+        ]
+        Action = [
+          "ecs:DescribeTaskDefinition"
+        ]
       }
     ]
   })
@@ -181,6 +190,18 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
       {
         Effect   = "Allow"
         Action   = "iam:PassRole"
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "codedeploy:CreateDeployment",
+          "codedeploy:GetApplication",
+          "codedeploy:GetApplicationRevision",
+          "codedeploy:GetDeployment",
+          "codedeploy:GetDeploymentConfig",
+          "codedeploy:RegisterApplicationRevision"
+        ]
         Resource = "*"
       }
     ]
