@@ -30,13 +30,13 @@ Blue/Green デプロイを実現するために、ALB には 2 つのリスナ�
 - テスト用ポート（8080）は CloudFront を経由せず、開発者が直接 ALB の DNS 名に対してアクセスします。
 - デプロイ完了（Swap）後、443 ポートの接続先が新バージョンに切り替わるため、CloudFront の設定変更は不要です。
 
-## デプロイフロー (ECS Native Blue/Green)
+## デプロイフロー (ECS Blue/Green with CodePipeline)
 
 1.  **Build**: CodeBuild が新しい Docker イメージを作成し、ECR に Push。
-2.  **Deploy 開始**: CodePipeline が CodeDeploy (ECS Native) をキック。
-    - `imagedefinitions.json` を元に、ECS が自動的に新しいタスク定義を作成します。
+    - 同時に `appspec.yaml` と `taskdef.json` を動的に生成します。
+2.  **Deploy 開始**: CodePipeline が CodeDeploy をキック。
+    - 生成されたアーティファクト（`appspec.yaml`, `taskdef.json`, `imagedefinitions.json`）を入力として使用します。
 3.  **Green 環境起動**: CodeDeploy が新しいタスクセット（Green）を起動し、**テスト用リスナー (8080)** に紐付けます。
-    - `appspec.yaml` は不要です（Terraform 上の設定に基づき自動制御されます）。
 4.  **検証 (Validation)**:
     - **Lambda Lifecycle Hook**: `AfterAllowTestTraffic` フックで Lambda が起動し、自動テストや通知を実行。
     - **手動確認**: 開発者が `https://<ALB-DNS>:8080` にアクセスして動作確認。
@@ -46,5 +46,5 @@ Blue/Green デプロイを実現するために、ALB には 2 つのリスナ�
 
 ## 必要なファイル
 
-- **imagedefinitions.json**: CodeBuild で生成される、コンテナ名とイメージ URI のマッピングファイル。
-- **※注意**: 従来の `appspec.yaml` や `taskdef.json` は、ECS Native Blue/Green 機能により不要となりました。
+- **imagedefinitions.json**: コンテナ名とイメージ URI のマッピング。
+- **appspec.yaml / taskdef.json**: CodePipeline の仕様上必要ですが、**`buildspec.yml` 内で動的に生成するため、リポジトリでの管理は不要** です。

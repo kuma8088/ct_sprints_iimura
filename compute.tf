@@ -152,7 +152,16 @@ resource "aws_ecs_service" "sprints_api_service" {
     container_port   = 80
   }
 
+  deployment_controller {
+    type = "CODE_DEPLOY"
+  }
 
+  lifecycle {
+    ignore_changes = [
+      task_definition,
+      load_balancer
+    ]
+  }
 
   depends_on = [aws_lb_listener.api_alb_listener_https]
 }

@@ -187,6 +187,89 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
   })
 }
 
+# CodeDeploy Application
+resource "aws_codedeploy_app" "api_deploy" {
+  compute_platform = "ECS"
+  name             = "api-deploy"
+}
+
+# CodeDeploy Deployment Group
+resource "aws_codedeploy_deployment_group" "api_deploy_group" {
+  app_name               = aws_codedeploy_app.api_deploy.name
+  deployment_config_name = "CodeDeployDefault.ECSAllAtOnce"
+  deployment_group_name  = "api-deploy-group"
+  service_role_arn       = aws_iam_role.codedeploy_role.arn
+
+  auto_rollback_configuration {
+    enabled = true
+    events  = ["DEPLOYMENT_FAILURE"]
+  }
+
+  blue_green_deployment_config {
+    deployment_ready_option {
+      action_on_timeout = "CONTINUE_DEPLOYMENT"
+    }
+
+    terminate_blue_instances_on_deployment_success {
+      action                           = "TERMINATE"
+      termination_wait_time_in_minutes = 5
+    }
+  }
+
+  deployment_style {
+    deployment_option = "WITH_TRAFFIC_CONTROL"
+    deployment_type   = "BLUE_GREEN"
+  }
+
+  ecs_service {
+    cluster_name = aws_ecs_cluster.sprints_cluster.name
+    service_name = aws_ecs_service.sprints_api_service.name
+  }
+
+  load_balancer_info {
+    target_group_pair_info {
+      prod_traffic_route {
+        listener_arns = [aws_lb_listener.api_alb_listener_https.arn]
+      }
+
+      target_group {
+        name = aws_lb_target_group.sprints_api_alb_target_group.name
+      }
+
+      target_group {
+        name = aws_lb_target_group.sprints_api_alb_target_group_green.name
+      }
+
+      test_traffic_route {
+        listener_arns = [aws_lb_listener.api_alb_listener_https_test.arn]
+      }
+    }
+  }
+}
+
+# IAM Role for CodeDeploy
+resource "aws_iam_role" "codedeploy_role" {
+  name = "sprints-codedeploy-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "codedeploy.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "codedeploy_role_policy" {
+  role       = aws_iam_role.codedeploy_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
+}
+
 # CodePipeline
 resource "aws_codepipeline" "api_pipeline" {
   name     = "api-pipeline"
@@ -241,14 +324,15 @@ resource "aws_codepipeline" "api_pipeline" {
       name            = "Deploy"
       category        = "Deploy"
       owner           = "AWS"
-      provider        = "ECS"
+      provider        = "CodeDeployToECS"
       input_artifacts = ["build_output"]
       version         = "1"
 
       configuration = {
-        ClusterName = aws_ecs_cluster.sprints_cluster.name
-        ServiceName = aws_ecs_service.sprints_api_service.name
-        FileName    = "imagedefinitions.json"
+        ApplicationName                = aws_codedeploy_app.api_deploy.name
+        DeploymentGroupName            = aws_codedeploy_deployment_group.api_deploy_group.deployment_group_name
+        TaskDefinitionTemplateArtifact = "build_output"
+        AppSpecTemplateArtifact        = "build_output"
       }
     }
   }
