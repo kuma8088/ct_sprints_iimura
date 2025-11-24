@@ -7,8 +7,11 @@
 - [x] Sprint3: Redundancy (ALB/Auto Scaling)
 - [x] Sprint4: Contents Delivery
       (Cloudfront/Route53/CertificateManager/s3-Webfront)
-- [ ] Sprint5: Container (ECR/ECS/Fargate/NAT)
+- [x] Sprint5: Container (ECR/ECS/Fargate/NAT)
 - [ ] Sprint6: DevOps (CodePipeline/CodeBuild/CodeDeploy)
+  - [x] Rolling Deployment
+  - [ ] Blue/Green Deployment
+  - [ ] Lambda 検知
 
 ## Network
 
@@ -16,6 +19,7 @@
 flowchart TB
 %%外部要素のUser
 INET((Internet))
+GITHUB((GitHub))
 
 %%グループとサービス
 subgraph GC[AWS]
@@ -25,6 +29,8 @@ subgraph GC[AWS]
     ACM[ACM<br>ELB]
     ST1[(WebFront)]
     ECR[ECR]
+    CDP[CodeBuild]
+    CDB[CodeDeploy]
     subgraph GV[VPC:10.0.0.0/21]
       NW3[NATGW]
       subgraph GA[AZ:1a]
@@ -55,6 +61,11 @@ subgraph GC[AWS]
 end
 
 %%サービス同士の関係
+GITHUB -.- CDP
+CDP -.- ECR
+ECR -.- CDB
+CDB -.- CP2
+CDB -.- CP3
 INET --> DNS
 DNS --> |HTTPS| CF
 CF --> ST1
@@ -107,7 +118,7 @@ class NW1,NW2,NW3,CF,DNS SNW
 
 %%Compute関連のスタイル
 classDef SCP fill:#e83,color:#fff,stroke:none
-class CP1,CP2,CP3,ECR SCP
+class CP1,CP2,CP3,ECR,CDB,CDP SCP
 
 %%DB関連のスタイル
 classDef SDB fill:#46d,color:#fff,stroke:#fff
@@ -125,25 +136,39 @@ class GST,GDB,GCP,GNW,GOU SG
 ## Compute
 
 - WEB フロント(s3)
-- API サーバ (AutoScaling)
+- API サーバ (ECS:Fargate)
   - api-server-01
   - AmazonLinux
   - Nginx/Go/mysql
-- RDS サーバ(Multi AZ)
+- RDS サーバ(MySQL MultiAZ)
   - Aurora MySQL
   - db.t3.small
   - mysql8.0
 
-## Sprint5 Tasks
+## Sprint6 Tasks
 
-- [x] ALB Listner の変更 (target_type = "ip")
-- [x] 既存 AutoScaling の変更（停止）
-- [x] NAT ゲートウェイの作成（既に作成済み）
-- [x] ECS タスク定義
-- [x] ECS サービス定義
-- [ ] 動作確認
+- [x] アプリケーションリポジトリの分離 (`cloudtech-reservation-api`)
+- [x] CodeBuild 設定 (`buildspec.yml`)
+- [x] CI/CD パイプライン構築 (`cicd.tf`)
+  - CodeStar Connection (GitHub 連携)
+  - CodeBuild (Docker ビルド & ECR Push)
+  - CodePipeline (Source -> Build -> ECS Deploy)
+- [ ] 動作確認 (GitHub Push -> 自動デプロイ)
 
-### Sprint5 Problem/Resolution
+### Sprint6 Points
+
+- **リポジトリの責務分離**
+  インフラ (`terraform/`) とアプリ (`cloudtech-reservation-api/`) のリポジトリを分けることで、アプリ開発者がインフラを意識せずにデプロイできる構成に。
+  Terraform 側では `.gitignore` でアプリディレクトリを除外していますが、CodePipeline は GitHub 上のアプリリポジトリを直接参照するため問題なく動作します。
+
+- **環境変数の注入**
+  ECR のリポジトリ URL など、Terraform で作成される動的な値を `aws_codebuild_project` の `environment_variable` を通じて `buildspec.yml` に渡しています。これにより、ビルドスクリプト内にハードコードを避けています。
+
+- **ECS Standard Deployment**
+  今回は Blue/Green デプロイ（CodeDeploy）ではなく、ECS 標準のローリングアップデートを採用しました。
+  `imagedefinitions.json` をアーティファクトとして渡すことで、CodePipeline が自動的にタスク定義のイメージ URI を書き換えてデプロイします。
+
+### Sprint5 Completed: Problem/Resolution
 
 - ECS サービス作成エラー (InvalidParameterException)
   ALB と ECS サービスの間に循環依存 (`depends_on`) が発生し、ターゲットグループが ALB に紐付く前に ECS サービスが作成されようとしたためエラー。`alb.tf` の `depends_on` を削除し、逆に `compute.tf` の ECS サービス側で `depends_on = [aws_lb_listener...]` を設定して解決
@@ -162,7 +187,7 @@ class GST,GDB,GCP,GNW,GOU SG
 - 不要なポート開放の削除
   Fargate 化に伴い SSH 接続（ポート 22）は不要となるため、セキュリティグループのインバウンドルールから削除。
 
-### Sprint4 Problem/Resolution
+### Sprint4 Completed: Problem/Resolution
 
 - 追加レコードの検証が完了しない
   ホストゾーンとレジストラの NS レコード設定が必要（ホストゾーンの作成とレコード追加・検証の同時作業は不可）
@@ -175,7 +200,7 @@ class GST,GDB,GCP,GNW,GOU SG
 - 設定変更が反映されない (Timeout)
   `user_data` で Nginx 設定ファイルを書き換えた後、`start` ではなく `restart` を実行しないと新設定が読み込まれない問題を修正
 
-### Sprint3 Completed
+### Sprint3 Completed: Problem/Resolution
 
 - 課題解決
 
@@ -196,7 +221,7 @@ class GST,GDB,GCP,GNW,GOU SG
   - [x] auto-scaling 設定
   - [x] 起動確認・動作確認
 
-### Sprint2 Completed
+### Sprint2 Completed: Problem/Resolution
 
 - サーバ作成順（depends_on）
 - 変数利用（variables.tf,terraform.tfvars）
@@ -206,7 +231,7 @@ class GST,GDB,GCP,GNW,GOU SG
 - user_data.sh で特定 PID を変数にして kill する処理
 - user_data.sh の処理待ちの確認(EC2: Actions-"Monitor and troubleshoot"-"Get system log")
 
-### Sprint1 Completed
+### Sprint1 Completed: Problem/Resolution
 
 - 要件: Web アプリケーション起動および"API Test"の正常動作
 - 結果:

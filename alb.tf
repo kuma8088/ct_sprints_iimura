@@ -27,6 +27,13 @@ resource "aws_security_group" "sprints_alb_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -83,6 +90,44 @@ resource "aws_lb_target_group" "sprints_api_alb_target_group" {
   }
   tags = {
     Name = "sprints-ecs-alb-target-group"
+  }
+}
+
+# ALB TargetGroup (Green)
+resource "aws_lb_target_group" "sprints_api_alb_target_group_green" {
+  name                 = "sprints-ecs-alb-tg-green"
+  target_type          = "ip"
+  vpc_id               = aws_vpc.sprints_network.id
+  port                 = 80
+  protocol             = "HTTP"
+  deregistration_delay = 300
+
+  health_check {
+    path                = "/"
+    healthy_threshold   = 5
+    unhealthy_threshold = 2
+    timeout             = 5
+    interval            = 30
+    matcher             = 200
+    port                = "traffic-port"
+    protocol            = "HTTP"
+  }
+  tags = {
+    Name = "sprints-ecs-alb-tg-green"
+  }
+}
+
+# ALB Listener (Test / Green)
+resource "aws_lb_listener" "api_alb_listener_https_test" {
+  load_balancer_arn = aws_lb.api_alb.arn
+  port              = 8080
+  protocol          = "HTTPS"
+
+  certificate_arn = aws_acm_certificate.sprints_api_cert.arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.sprints_api_alb_target_group_green.arn
   }
 }
 
