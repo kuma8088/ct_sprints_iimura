@@ -1,4 +1,7 @@
-# ct_sprints_iimura
+# CloudTech Sprints
+
+AWS 上に 3 層 Web アプリケーション（Web/API/DB）を構築するハンズオンプロジェクト。
+Terraform による Infrastructure as Code で、Blue-Green デプロイメント対応の CI/CD パイプラインを備えた実践的なアーキテクチャを実装。
 
 ## Sprints
 
@@ -13,7 +16,92 @@
   - [x] Blue/Green Deployment
   - [x] Lambda 検知
 
+## Quick Start
+
+```bash
+# 1. 変数ファイルの作成
+cp terraform.tfvars.example terraform.tfvars
+# terraform.tfvars を編集して必要な値を設定
+
+# 2. 初期化
+terraform init
+
+# 3. プラン確認
+terraform plan
+
+# 4. 適用
+terraform apply
+```
+
+### 必要な変数（terraform.tfvars）
+
+| 変数名           | 説明                      | 例                                    |
+| ---------------- | ------------------------- | ------------------------------------- |
+| `db_user`        | RDS 接続ユーザー名        | `admin`                               |
+| `db_password`    | RDS 接続パスワード        | `your-secure-password`                |
+| `region`         | AWS リージョン            | `ap-northeast-1`                      |
+| `account_id`     | AWS アカウント ID         | `123456789012`                        |
+| `github_repo_url`| GitHub リポジトリ URL     | `https://github.com/user/repo`        |
+| `domain_name`    | カスタムドメイン名        | `example.com`                         |
+
+## Architecture Overview
+
+### システム構成
+
+```
+Internet
+    │
+    ▼
+Route53 (DNS)
+    │
+    ├──────────────────────────────────────┐
+    │                                      │
+    ▼                                      ▼
+CloudFront ─────► S3 (静的コンテンツ)   ALB (api.domain.com)
+                                           │
+                                    ┌──────┴──────┐
+                                    ▼             ▼
+                               ECS Fargate   ECS Fargate
+                               (AZ: 1a)      (AZ: 1c)
+                                    │             │
+                                    └──────┬──────┘
+                                           ▼
+                                    RDS MySQL (Multi-AZ)
+```
+
+### CI/CD パイプライン
+
+```
+GitHub (Push) ──► CodePipeline ──► CodeBuild ──► ECR ──► CodeDeploy ──► ECS
+                      │                                       │
+                      │                              Blue-Green Deployment
+                      │                              (ゼロダウンタイム)
+                      ▼
+               Lambda (DeployHook)
+               デプロイメント検証
+```
+
 ## Network
+
+### VPC 構成
+
+| リソース          | CIDR / 設定                   | 説明                           |
+| ----------------- | ----------------------------- | ------------------------------ |
+| **VPC**           | `10.0.0.0/21`                 | 2048 IP アドレス               |
+| DNS サポート      | 有効                          | VPC 内 DNS 解決                |
+
+### サブネット構成
+
+| サブネット         | CIDR           | AZ              | タイプ     | 用途                    |
+| ------------------ | -------------- | --------------- | ---------- | ----------------------- |
+| `elb_01`           | `10.0.5.0/24`  | ap-northeast-1a | Public     | ALB                     |
+| `elb_02`           | `10.0.6.0/24`  | ap-northeast-1c | Public     | ALB                     |
+| `api_01`           | `10.0.1.0/24`  | ap-northeast-1a | Private    | ECS Fargate             |
+| `api_02`           | `10.0.4.0/24`  | ap-northeast-1c | Private    | ECS Fargate             |
+| `db_01`            | `10.0.2.0/24`  | ap-northeast-1a | Private    | RDS Primary             |
+| `db_02`            | `10.0.3.0/24`  | ap-northeast-1c | Private    | RDS Standby             |
+
+### ネットワーク図
 
 ```mermaid
 flowchart TB
@@ -137,47 +225,161 @@ class GST,GDB,GCP,GNW,GOU SG
 
 ## Compute
 
-- WEB フロント(s3)
-- API サーバ (ECS:Fargate)
-  - api-server-01
-  - AmazonLinux
-  - Nginx/Go/mysql
-- RDS サーバ(MySQL MultiAZ)
-  - Aurora MySQL
-  - db.t3.small
-  - mysql8.0
+### ECS (Fargate)
 
-## Sprint6 Tasks
+| 設定項目           | 値                          |
+| ------------------ | --------------------------- |
+| クラスター名       | `sprints-cluster`           |
+| タスク定義         | `sprints-api-td`            |
+| CPU / Memory       | 256 / 512 MB                |
+| コンテナポート     | 80                          |
+| 望ましいタスク数   | 2                           |
+| デプロイ方式       | CODE_DEPLOY (Blue-Green)    |
 
-- [x] アプリケーションリポジトリの分離 (`cloudtech-reservation-api`)
-- [x] CodeBuild 設定 (`buildspec.yml`)
-- [x] CI/CD パイプライン構築 (`cicd.tf`)
-  - CodeStar Connection (GitHub 連携)
-  - CodeBuild (Docker ビルド & ECR Push)
-  - CodePipeline (Source -> Build -> ECS Deploy)
-- [x] Rolling Deployment
-- [x] Blue/Green Deployment
-- [x] 動作確認 (GitHub Push -> 自動デプロイ)
+**オートスケーリング:**
+- 最小: 2、最大: 4
+- スケールアウト条件: CPU 使用率 > 90%
 
-### Sprint6 Points
+**環境変数:**
+- `API_PORT`: APIサーバーポート
+- `DB_USERNAME` / `DB_PASSWORD`: RDS 認証情報
+- `DB_SERVERNAME` / `DB_PORT` / `DB_NAME`: RDS 接続情報
+
+### RDS (MySQL)
+
+| 設定項目           | 値                          |
+| ------------------ | --------------------------- |
+| エンジン           | MySQL 8.0.43                |
+| インスタンスクラス | db.t3.small                 |
+| ストレージ         | 20 GB (gp3)、最大 100 GB    |
+| Multi-AZ           | 有効                        |
+| 暗号化             | 有効                        |
+| バックアップ保持   | 30 日                       |
+
+**パラメータグループ:**
+- 文字セット: `utf8mb4`（日本語対応）
+
+### S3 (静的コンテンツ)
+
+| 設定項目           | 値                          |
+| ------------------ | --------------------------- |
+| バケット名         | `sprints-iimura-s3-bucket-*`|
+| パブリックアクセス | 全てブロック                |
+| 配信方法           | CloudFront OAC 経由         |
+
+## Security
+
+### セキュリティグループ
+
+| SG 名              | インバウンド許可            | ソース                      |
+| ------------------ | --------------------------- | --------------------------- |
+| `web_security`     | 80, 443, 22                 | `0.0.0.0/0`                 |
+| `api_security`     | 80                          | ALB SG のみ                 |
+| `db_security`      | 3306                        | API SG のみ                 |
+
+### IAM グループ・ポリシー
+
+| グループ名                  | 権限                                    | メンバー例            |
+| --------------------------- | --------------------------------------- | --------------------- |
+| `server-management-group`   | EC2 開始/停止/再起動/削除               | jiro.test, shiro.test |
+| `database-management-group` | RDS 開始/停止/再起動/スナップショット   | saburo.test           |
+| `user-management-group`     | IAM ユーザー作成/削除/更新              | taro.test             |
+
+## CI/CD Pipeline
+
+### パイプライン構成 (cicd.tf)
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Source    │───►│    Build    │───►│   Deploy    │
+│   (GitHub)  │    │ (CodeBuild) │    │(CodeDeploy) │
+└─────────────┘    └─────────────┘    └─────────────┘
+       │                  │                  │
+       ▼                  ▼                  ▼
+  CodeStar         Docker Build         Blue-Green
+  Connection       ECR Push             ECS Deploy
+```
+
+### CodeBuild 設定
+
+| 設定項目           | 値                          |
+| ------------------ | --------------------------- |
+| プロジェクト名     | `api-build`                 |
+| イメージ           | `aws/codebuild/standard:5.0`|
+| コンピュート       | BUILD_GENERAL1_SMALL        |
+| 特権モード         | 有効 (Docker ビルド用)      |
+
+### CodeDeploy 設定
+
+| 設定項目           | 値                          |
+| ------------------ | --------------------------- |
+| アプリケーション名 | `api-deploy`                |
+| デプロイグループ   | `api-deploy-group`          |
+| デプロイ方式       | Blue-Green                  |
+| 本番リスナー       | HTTPS:443                   |
+| テストリスナー     | HTTPS:8080                  |
+| 旧環境終了         | デプロイ成功後 5 分         |
+| 自動ロールバック   | デプロイ失敗時              |
+
+### Lambda (デプロイフック)
+
+- 関数名: `sprints-deployment-hook`
+- ランタイム: Python 3.9
+- 用途: CodeDeploy ライフサイクルイベントの検証
+
+## File Structure
+
+```
+terraform/
+├── main.tf                  # プロバイダー定義、ローカル変数
+├── variables.tf             # 入力変数定義
+├── network.tf               # VPC、サブネット、ルートテーブル、NAT GW
+├── compute.tf               # ECS、セキュリティグループ、IAM ロール
+├── alb.tf                   # ALB、ターゲットグループ、リスナー
+├── rds.tf                   # RDS インスタンス、パラメータグループ
+├── s3.tf                    # S3 バケット、OAC、バケットポリシー
+├── ecr.tf                   # ECR リポジトリ
+├── cicd.tf                  # CodePipeline、CodeBuild、CodeDeploy
+├── cloudfront-acm.tf        # CloudFront Distribution、ACM 参照
+├── route53.tf               # Route53 ホストゾーン、エイリアスレコード
+├── IAM.tf                   # IAM ユーザー、グループ、ポリシー
+├── lambda.tf                # デプロイフック Lambda
+├── ec2_instance_connect.tf  # EC2 Instance Connect Endpoint
+└── terraform.tfvars         # 環境固有の変数値 (.gitignore)
+```
+
+## Outputs
+
+| 出力名               | 説明                        | 定義ファイル  |
+| -------------------- | --------------------------- | ------------- |
+| `alb_dns_name`       | ALB の DNS 名               | alb.tf        |
+| `ecr_repository_url` | ECR リポジトリ URL          | ecr.tf        |
+
+---
+
+## Sprint Notes
+
+<details>
+<summary><strong>Sprint6: DevOps (CI/CD Pipeline)</strong></summary>
+
+#### Points
 
 - **リポジトリの責務分離**
   インフラ (`terraform/`) とアプリ (`cloudtech-reservation-api/`) のリポジトリを分けることで、アプリ開発者がインフラを意識せずにデプロイできる構成に。
-  Terraform 側では `.gitignore` でアプリディレクトリを除外していますが、CodePipeline は GitHub 上のアプリリポジトリを直接参照するため問題なく動作します。
 
 - **環境変数の注入**
-  ECR のリポジトリ URL など、Terraform で作成される動的な値を `aws_codebuild_project` の `environment_variable` を通じて `buildspec.yml` に渡しています。これにより、ビルドスクリプト内にハードコードを避けています。
-
-- **ECS Standard Deployment**
-  今回は Blue/Green デプロイ（CodeDeploy）ではなく、ECS 標準のローリングアップデートを採用しました。
-  `imagedefinitions.json` をアーティファクトとして渡すことで、CodePipeline が自動的にタスク定義のイメージ URI を書き換えてデプロイします。
+  ECR のリポジトリ URL など、Terraform で作成される動的な値を `aws_codebuild_project` の `environment_variable` を通じて `buildspec.yml` に渡す。
 
 - **Blue/Green Deployment**
-  - Blue/Green デプロイメントの実装・テスト実施。
-  - Terraform で Blue/Green を実装する場合、コンソール設定と同じく buildspec.yml の生成だけですすめれれるが、進行上は appspec.yml や taskdef.json の生成も必要。
-  - DockerHub からの Ratelimit 対策として、ECR への Push は GitHub Actions で行い、CodeBuild では Pull のみ行うように設定。
+  - Terraform で Blue/Green を実装する場合、appspec.yml や taskdef.json の動的生成が必要
+  - DockerHub からの Ratelimit 対策として、AWS の公式リポジトリを利用
 
-### Sprint5 Completed: Problem/Resolution
+</details>
+
+<details>
+<summary><strong>Sprint5: Container (ECS/Fargate)</strong></summary>
+
+#### Problem/Resolution
 
 - ECS サービス作成エラー (InvalidParameterException)
   ALB と ECS サービスの間に循環依存 (`depends_on`) が発生し、ターゲットグループが ALB に紐付く前に ECS サービスが作成されようとしたためエラー。`alb.tf` の `depends_on` を削除し、逆に `compute.tf` の ECS サービス側で `depends_on = [aws_lb_listener...]` を設定して解決
@@ -196,7 +398,12 @@ class GST,GDB,GCP,GNW,GOU SG
 - 不要なポート開放の削除
   Fargate 化に伴い SSH 接続（ポート 22）は不要となるため、セキュリティグループのインバウンドルールから削除。
 
-### Sprint4 Completed: Problem/Resolution
+</details>
+
+<details>
+<summary><strong>Sprint4: Contents Delivery (CloudFront/Route53)</strong></summary>
+
+#### Problem/Resolution
 
 - 追加レコードの検証が完了しない
   ホストゾーンとレジストラの NS レコード設定が必要（ホストゾーンの作成とレコード追加・検証の同時作業は不可）
@@ -209,7 +416,12 @@ class GST,GDB,GCP,GNW,GOU SG
 - 設定変更が反映されない (Timeout)
   `user_data` で Nginx 設定ファイルを書き換えた後、`start` ではなく `restart` を実行しないと新設定が読み込まれない問題を修正
 
-### Sprint3 Completed: Problem/Resolution
+</details>
+
+<details>
+<summary><strong>Sprint3: Redundancy (ALB/Auto Scaling)</strong></summary>
+
+#### Problem/Resolution
 
 - 課題解決
 
@@ -230,7 +442,12 @@ class GST,GDB,GCP,GNW,GOU SG
   - [x] auto-scaling 設定
   - [x] 起動確認・動作確認
 
-### Sprint2 Completed: Problem/Resolution
+</details>
+
+<details>
+<summary><strong>Sprint2: RDS and Authentication</strong></summary>
+
+#### Problem/Resolution
 
 - サーバ作成順（depends_on）
 - 変数利用（variables.tf,terraform.tfvars）
@@ -240,7 +457,12 @@ class GST,GDB,GCP,GNW,GOU SG
 - user_data.sh で特定 PID を変数にして kill する処理
 - user_data.sh の処理待ちの確認(EC2: Actions-"Monitor and troubleshoot"-"Get system log")
 
-### Sprint1 Completed: Problem/Resolution
+</details>
+
+<details>
+<summary><strong>Sprint1: Network and Servers</strong></summary>
+
+#### Problem/Resolution
 
 - 要件: Web アプリケーション起動および"API Test"の正常動作
 - 結果:
@@ -248,3 +470,5 @@ class GST,GDB,GCP,GNW,GOU SG
   - user_data.sh.tmpl を使って自動化
     - スクリプト作成
     - 値の渡し方(templatefile,ヒアドキュメント)
+
+</details>
